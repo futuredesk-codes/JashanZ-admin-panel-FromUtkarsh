@@ -1,14 +1,18 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import AdminSidebar from './AdminSidebar'
 import AdminHeader from './AdminHeader'
 
 export default function AdminLayout() {
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col ml-60 min-w-0 overflow-hidden">
-        <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-6">
+      <AdminSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-60 overflow-hidden">
+        <AdminHeader onMenuClick={() => setDrawerOpen(true)} />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

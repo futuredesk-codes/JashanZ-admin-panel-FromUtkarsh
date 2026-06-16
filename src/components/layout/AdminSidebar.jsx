@@ -74,30 +74,20 @@ const NAV_GROUPS = [
   },
 ]
 
-export default function AdminSidebar() {
-  const navigate = useNavigate()
-  const { pathname } = useLocation()
+const BOTTOM_ITEMS = [
+  {
+    id: 'settings', label: 'Settings', path: '/admin/settings', icon: () => (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+    ),
+  },
+]
 
-  const activeId = NAV_GROUPS.flatMap(g => g.items).find(item => pathname.startsWith(item.path))?.id ?? ''
-
+function NavContent({ activeId, onNavigate }) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-sidebar flex flex-col z-40">
-      {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/8">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shrink-0">
-            <svg width="16" height="16" viewBox="0 0 99 90" fill="white">
-              <path d="M63 0H76L63.271 15.5L79 22L99 67L88.5 63L57.933 22L2.5 89.5H0L63 0Z"/>
-            </svg>
-          </div>
-          <div>
-            <p className="text-white font-black text-sm leading-none">Jashanz</p>
-            <p className="text-white/40 text-[10px] mt-0.5 uppercase tracking-wider">Admin Portal</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav */}
+    <div className="flex flex-col h-full">
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
@@ -111,7 +101,7 @@ export default function AdminSidebar() {
               return (
                 <button
                   key={id}
-                  onClick={() => navigate(path)}
+                  onClick={() => onNavigate(path)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-all duration-150 ${
                     isActive
                       ? 'bg-brand text-white shadow-lg shadow-brand/20'
@@ -127,20 +117,19 @@ export default function AdminSidebar() {
         ))}
       </nav>
 
-      {/* Bottom */}
       <div className="px-3 py-4 border-t border-white/8 space-y-0.5">
+        {BOTTOM_ITEMS.map(({ id, label, path, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => onNavigate(path)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-white/8 hover:text-white transition-all ${activeId === id ? 'bg-white/10 text-white' : ''}`}
+          >
+            <span className="shrink-0"><Icon /></span>
+            {label}
+          </button>
+        ))}
         <button
-          onClick={() => navigate('/admin/settings')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-white/8 hover:text-white transition-all"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-          </svg>
-          Settings
-        </button>
-        <button
-          onClick={() => navigate('/admin/login')}
+          onClick={() => onNavigate('/admin/login')}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-danger/15 hover:text-danger transition-all"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -149,6 +138,87 @@ export default function AdminSidebar() {
           Logout
         </button>
       </div>
-    </aside>
+    </div>
+  )
+}
+
+export default function AdminSidebar({ open, onClose }) {
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+
+  const allItems = [...NAV_GROUPS.flatMap(g => g.items), ...BOTTOM_ITEMS]
+  const activeId = allItems.find(item => pathname.startsWith(item.path))?.id ?? ''
+
+  function handleNavigate(path) {
+    navigate(path)
+    onClose()
+  }
+
+  return (
+    <>
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-60 bg-sidebar flex-col z-40">
+        {/* Logo */}
+        <div className="px-6 py-5 border-b border-white/8 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shrink-0">
+              <svg width="16" height="16" viewBox="0 0 99 90" fill="white">
+                <path d="M63 0H76L63.271 15.5L79 22L99 67L88.5 63L57.933 22L2.5 89.5H0L63 0Z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-white font-black text-sm leading-none">Jashanz</p>
+              <p className="text-white/40 text-[10px] mt-0.5 uppercase tracking-wider">Admin Portal</p>
+            </div>
+          </div>
+        </div>
+        <NavContent activeId={activeId} onNavigate={handleNavigate} />
+      </aside>
+
+      {/* ── Mobile bottom drawer ── */}
+      {/* Backdrop */}
+      <div
+        className={`lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+      />
+
+      {/* Drawer */}
+      <div
+        className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar rounded-t-3xl transition-transform duration-300 ease-out ${open ? 'translate-y-0' : 'translate-y-full'}`}
+        style={{ maxHeight: '82vh' }}
+      >
+        {/* Pull handle */}
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 bg-white/25 rounded-full" />
+        </div>
+
+        {/* Logo row in drawer */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-brand rounded-lg flex items-center justify-center shrink-0">
+              <svg width="13" height="13" viewBox="0 0 99 90" fill="white">
+                <path d="M63 0H76L63.271 15.5L79 22L99 67L88.5 63L57.933 22L2.5 89.5H0L63 0Z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-white font-black text-sm leading-none">Jashanz</p>
+              <p className="text-white/40 text-[10px] uppercase tracking-wider">Admin Portal</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="overflow-y-auto" style={{ maxHeight: 'calc(82vh - 80px)' }}>
+          <NavContent activeId={activeId} onNavigate={handleNavigate} />
+        </div>
+      </div>
+    </>
   )
 }

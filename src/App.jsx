@@ -12,6 +12,16 @@ import FinanceLayout    from './components/layout/FinanceLayout'
 
 import PlaceholderPage  from './pages/PlaceholderPage'
 
+import BusinessesPage    from './pages/admin/BusinessesPage'
+import CustomersPage     from './pages/admin/CustomersPage'
+import CategoriesPage    from './pages/admin/CategoriesPage'
+import SupportUsersPage  from './pages/admin/SupportUsersPage'
+import FinanceUsersPage  from './pages/admin/FinanceUsersPage'
+import RolesPage         from './pages/admin/RolesPage'
+import ReportsPage       from './pages/admin/ReportsPage'
+import AuditLogsPage     from './pages/admin/AuditLogsPage'
+import AdminSettingsPage from './pages/admin/AdminSettingsPage'
+
 export default function App() {
   return (
     <Routes>
@@ -22,15 +32,15 @@ export default function App() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"     element={<AdminDashboard />} />
-        <Route path="businesses"    element={<PlaceholderPage title="Business Management" />} />
-        <Route path="customers"     element={<PlaceholderPage title="Customer Management" />} />
-        <Route path="categories"    element={<PlaceholderPage title="Service Categories" />} />
-        <Route path="support-users" element={<PlaceholderPage title="Support Users" />} />
-        <Route path="finance-users" element={<PlaceholderPage title="Finance Users" />} />
-        <Route path="roles"         element={<PlaceholderPage title="Roles & Permissions" />} />
-        <Route path="reports"       element={<PlaceholderPage title="Reports" />} />
-        <Route path="audit"         element={<PlaceholderPage title="Audit Logs" />} />
-        <Route path="settings"      element={<PlaceholderPage title="Settings" />} />
+        <Route path="businesses"    element={<BusinessesPage />} />
+        <Route path="customers"     element={<CustomersPage />} />
+        <Route path="categories"    element={<CategoriesPage />} />
+        <Route path="support-users" element={<SupportUsersPage />} />
+        <Route path="finance-users" element={<FinanceUsersPage />} />
+        <Route path="roles"         element={<RolesPage />} />
+        <Route path="reports"       element={<ReportsPage />} />
+        <Route path="audit"         element={<AuditLogsPage />} />
+        <Route path="settings"      element={<AdminSettingsPage />} />
       </Route>
 
       {/* ── Support Portal ── */}

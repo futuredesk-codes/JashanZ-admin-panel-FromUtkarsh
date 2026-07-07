@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom'
+import { useAdminAuth } from '../../context/AdminAuthContext'
 
 const TITLES = {
   '/admin/dashboard':     'Dashboard',
@@ -15,7 +16,10 @@ const TITLES = {
 
 export default function AdminHeader({ onMenuClick }) {
   const { pathname } = useLocation()
+  const { auth } = useAdminAuth()
   const title = TITLES[pathname] ?? 'Admin Panel'
+  const username = auth?.username || 'Admin'
+  const initials = username.slice(0, 2).toUpperCase()
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-3 sm:px-6 h-14 sm:h-16 flex items-center gap-2 sm:gap-4 shrink-0">
@@ -57,11 +61,11 @@ export default function AdminHeader({ onMenuClick }) {
         {/* Profile */}
         <button className="flex items-center gap-2 pl-2 sm:pl-3 pr-1.5 sm:pr-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
           <div className="w-7 h-7 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
-            SA
+            {initials}
           </div>
           <div className="hidden sm:block text-left">
-            <p className="text-xs font-bold text-slate-800 leading-none">Super Admin</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">admin@jashanz.in</p>
+            <p className="text-xs font-bold text-slate-800 leading-none">{username}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{auth?.role || ''}</p>
           </div>
           <svg className="text-slate-400 ml-0.5 hidden sm:block" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <polyline points="6 9 12 15 18 9"/>

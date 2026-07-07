@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 
+import { AdminAuthProvider } from './context/AdminAuthContext'
+import ProtectedRoute   from './components/ProtectedRoute'
+
 import AdminLoginPage   from './pages/admin/LoginPage'
 import AdminDashboard   from './pages/admin/DashboardPage'
 import AdminLayout      from './components/layout/AdminLayout'
@@ -24,12 +27,17 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 
 export default function App() {
   return (
+    <AdminAuthProvider>
     <Routes>
       <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
       {/* ── Admin Portal ── */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin" element={
+        <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']} redirectTo="/admin/login">
+          <AdminLayout />
+        </ProtectedRoute>
+      }>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"     element={<AdminDashboard />} />
         <Route path="businesses"    element={<BusinessesPage />} />
@@ -68,5 +76,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </AdminAuthProvider>
   )
 }

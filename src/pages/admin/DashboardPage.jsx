@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
+import { getPlatformAnalytics } from '../../api/analytics'
+import { useAdminAuth } from '../../context/AdminAuthContext'
 
 /* ── Mock data ── */
 const MONTHLY_REVENUE = [
@@ -103,6 +106,15 @@ const I = {
 }
 
 export default function DashboardPage() {
+  const { auth } = useAdminAuth()
+  const [stats, setStats] = useState(null)
+
+  useEffect(() => {
+    getPlatformAnalytics().then(setStats).catch(() => {})
+  }, [])
+
+  const pct = (n, total) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—'
+
   return (
     <div className="space-y-6 pb-6">
 
@@ -110,8 +122,8 @@ export default function DashboardPage() {
       <div className="bg-linear-to-r from-sidebar to-[#1e293b] rounded-2xl p-5 flex items-center justify-between">
         <div>
           <p className="text-white/50 text-xs font-semibold mb-1">Good morning,</p>
-          <h2 className="text-white text-xl font-black">Super Admin</h2>
-          <p className="text-white/40 text-xs mt-1">Sunday, 15 June 2026 · Here's your platform overview</p>
+          <h2 className="text-white text-xl font-black">{auth?.username || 'Admin'}</h2>
+          <p className="text-white/40 text-xs mt-1">Here's your platform overview</p>
         </div>
         <div className="flex gap-2">
           <button className="bg-brand text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-brand-dark transition-colors">
@@ -130,9 +142,9 @@ export default function DashboardPage() {
           <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Users</p>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <StatCard label="Total Customers" value="12,450" sub="+342 this month" color="brand" icon={I.users} />
-          <StatCard label="Active Customers" value="11,230" sub="90.2% active rate" color="success" icon={I.users} />
-          <StatCard label="Suspended" value="1,220" sub="9.8% suspended" color="danger" icon={I.users} />
+          <StatCard label="Total Customers" value={stats?.totalUsers ?? '—'} sub="All registered" color="brand" icon={I.users} />
+          <StatCard label="Active Customers" value={stats?.activeUsers ?? '—'} sub={stats ? `${pct(stats.activeUsers, stats.totalUsers)} active rate` : ''} color="success" icon={I.users} />
+          <StatCard label="Suspended" value={stats?.suspendedUsers ?? '—'} sub={stats ? `${pct(stats.suspendedUsers, stats.totalUsers)} suspended` : ''} color="danger" icon={I.users} />
         </div>
       </div>
 
@@ -143,10 +155,10 @@ export default function DashboardPage() {
           <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Businesses</p>
         </div>
         <div className="grid grid-cols-4 gap-3">
-          <StatCard label="Total Businesses" value="847" sub="All registered" color="brand" icon={I.biz} />
-          <StatCard label="Pending Approval" value="23" sub="Awaiting review" color="warning" icon={I.biz} />
-          <StatCard label="Approved" value="789" sub="93.2% approved" color="success" icon={I.biz} />
-          <StatCard label="Rejected" value="35" sub="4.1% rejected" color="danger" icon={I.biz} />
+          <StatCard label="Total Businesses" value={stats?.totalBusinesses ?? '—'} sub="All registered" color="brand" icon={I.biz} />
+          <StatCard label="Pending Approval" value={stats?.pendingBusinesses ?? '—'} sub="Awaiting review" color="warning" icon={I.biz} />
+          <StatCard label="Approved" value={stats?.verifiedBusinesses ?? '—'} sub={stats ? `${pct(stats.verifiedBusinesses, stats.totalBusinesses)} approved` : ''} color="success" icon={I.biz} />
+          <StatCard label="Rejected" value={stats?.rejectedBusinesses ?? '—'} sub={stats ? `${pct(stats.rejectedBusinesses, stats.totalBusinesses)} rejected` : ''} color="danger" icon={I.biz} />
         </div>
       </div>
 

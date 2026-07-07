@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAdminAuth } from '../../context/AdminAuthContext'
 
 const NAV_GROUPS = [
   {
@@ -85,7 +86,7 @@ const BOTTOM_ITEMS = [
   },
 ]
 
-function NavContent({ activeId, onNavigate }) {
+function NavContent({ activeId, onNavigate, onLogout }) {
   return (
     <div className="flex flex-col h-full">
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
@@ -129,7 +130,7 @@ function NavContent({ activeId, onNavigate }) {
           </button>
         ))}
         <button
-          onClick={() => onNavigate('/admin/login')}
+          onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-danger/15 hover:text-danger transition-all"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -145,12 +146,19 @@ function NavContent({ activeId, onNavigate }) {
 export default function AdminSidebar({ open, onClose }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { logout } = useAdminAuth()
 
   const allItems = [...NAV_GROUPS.flatMap(g => g.items), ...BOTTOM_ITEMS]
   const activeId = allItems.find(item => pathname.startsWith(item.path))?.id ?? ''
 
   function handleNavigate(path) {
     navigate(path)
+    onClose()
+  }
+
+  function handleLogout() {
+    logout()
+    navigate('/admin/login')
     onClose()
   }
 
@@ -172,7 +180,7 @@ export default function AdminSidebar({ open, onClose }) {
             </div>
           </div>
         </div>
-        <NavContent activeId={activeId} onNavigate={handleNavigate} />
+        <NavContent activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
       </aside>
 
       {/* ── Mobile bottom drawer ── */}
@@ -216,7 +224,7 @@ export default function AdminSidebar({ open, onClose }) {
         </div>
 
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(82vh - 80px)' }}>
-          <NavContent activeId={activeId} onNavigate={handleNavigate} />
+          <NavContent activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
         </div>
       </div>
     </>

@@ -88,6 +88,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
             <div className="grid grid-cols-2 gap-4">
               {[
                 ['Username', biz.username],
+                ['Email', biz.email || '—'],
                 ['Mobile', `${biz.countryCode || ''} ${biz.phoneNumber || ''}`],
                 ['Category', biz.category?.name || '—'],
                 ['Area', profile.area || '—'],

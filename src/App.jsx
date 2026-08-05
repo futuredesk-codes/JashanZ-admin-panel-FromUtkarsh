@@ -16,6 +16,7 @@ import FinanceLayout    from './components/layout/FinanceLayout'
 import PlaceholderPage  from './pages/PlaceholderPage'
 
 import BusinessesPage    from './pages/admin/BusinessesPage'
+import CreatorsPage      from './pages/admin/CreatorsPage'
 import CustomersPage     from './pages/admin/CustomersPage'
 import CategoriesPage    from './pages/admin/CategoriesPage'
 import SupportUsersPage  from './pages/admin/SupportUsersPage'
@@ -41,6 +42,7 @@ export default function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"     element={<AdminDashboard />} />
         <Route path="businesses"    element={<BusinessesPage />} />
+        <Route path="creators"      element={<CreatorsPage />} />
         <Route path="customers"     element={<CustomersPage />} />
         <Route path="categories"    element={<CategoriesPage />} />
         <Route path="support-users" element={<SupportUsersPage />} />

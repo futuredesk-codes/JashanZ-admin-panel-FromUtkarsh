@@ -76,24 +76,19 @@ const NAV_GROUPS = [
           <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
         </svg>
       )},
+      { id: 'settings', label: 'Settings', path: '/admin/settings', icon: () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      )},
     ],
-  },
-]
-
-const BOTTOM_ITEMS = [
-  {
-    id: 'settings', label: 'Settings', path: '/admin/settings', icon: () => (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-      </svg>
-    ),
   },
 ]
 
 function NavContent({ activeId, onNavigate, onLogout }) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex-1 flex flex-col min-h-0">
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
         {NAV_GROUPS.map((group, gi) => (
           <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
@@ -124,16 +119,6 @@ function NavContent({ activeId, onNavigate, onLogout }) {
       </nav>
 
       <div className="px-3 py-4 border-t border-white/8 space-y-0.5">
-        {BOTTOM_ITEMS.map(({ id, label, path, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => onNavigate(path)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-white/8 hover:text-white transition-all ${activeId === id ? 'bg-white/10 text-white' : ''}`}
-          >
-            <span className="shrink-0"><Icon /></span>
-            {label}
-          </button>
-        ))}
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-danger/15 hover:text-danger transition-all"
@@ -153,7 +138,7 @@ export default function AdminSidebar({ open, onClose }) {
   const { pathname } = useLocation()
   const { logout } = useAdminAuth()
 
-  const allItems = [...NAV_GROUPS.flatMap(g => g.items), ...BOTTOM_ITEMS]
+  const allItems = NAV_GROUPS.flatMap(g => g.items)
   const activeId = allItems.find(item => pathname.startsWith(item.path))?.id ?? ''
 
   function handleNavigate(path) {

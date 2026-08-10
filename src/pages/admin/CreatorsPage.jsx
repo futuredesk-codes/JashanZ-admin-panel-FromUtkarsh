@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getCreators, verifyCreator } from '../../api/creators'
+import { getCreators, verifyCreator, updateCreatorSocialStats } from '../../api/creators'
 import { ApiError } from '../../api/client'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
@@ -20,9 +20,22 @@ const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" 
 const IconXSmall = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 
 /* ── Creator Detail Modal ── */
-function CreatorDetailModal({ creator, onClose, onVerify }) {
+function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSaved }) {
   const [actionLoading, setActionLoading] = useState(false)
+  const [statsForm, setStatsForm] = useState({
+    instagramFollowers: creator.instagramFollowers ?? 0,
+    youtubeSubscribers: creator.youtubeSubscribers ?? 0,
+  })
+  const [savingStats, setSavingStats] = useState(false)
+  const [statsError, setStatsError] = useState('')
   const meetsThreshold = creator.instagramFollowers >= 50000 || creator.youtubeSubscribers >= 50000
+
+  useEffect(() => {
+    setStatsForm({
+      instagramFollowers: creator.instagramFollowers ?? 0,
+      youtubeSubscribers: creator.youtubeSubscribers ?? 0,
+    })
+  }, [creator._id, creator.instagramFollowers, creator.youtubeSubscribers])
 
   const handleVerify = async (status) => {
     setActionLoading(true)
@@ -30,6 +43,23 @@ function CreatorDetailModal({ creator, onClose, onVerify }) {
       await onVerify(creator._id, status)
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleSaveStats = async () => {
+    setSavingStats(true)
+    setStatsError('')
+    const payload = {
+      instagramFollowers: Number(statsForm.instagramFollowers) || 0,
+      youtubeSubscribers: Number(statsForm.youtubeSubscribers) || 0,
+    }
+    try {
+      await updateCreatorSocialStats(creator._id, payload)
+      onStatsSaved(creator._id, payload)
+    } catch (err) {
+      setStatsError(err instanceof ApiError ? err.message : 'Could not save follower counts.')
+    } finally {
+      setSavingStats(false)
     }
   }
 
@@ -53,18 +83,46 @@ function CreatorDetailModal({ creator, onClose, onVerify }) {
         </div>
 
         <div className="p-6">
+          {(creator.instagramUrl || creator.youtubeUrl) && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {creator.instagramUrl && (
+                <a href={creator.instagramUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand bg-brand/8 hover:bg-brand/15 px-3 py-1.5 rounded-full transition-colors">Open Instagram ↗</a>
+              )}
+              {creator.youtubeUrl && (
+                <a href={creator.youtubeUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-brand bg-brand/8 hover:bg-brand/15 px-3 py-1.5 rounded-full transition-colors">Open YouTube ↗</a>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
-            {[
-              ['Instagram Followers', fmtCount(creator.instagramFollowers)],
-              ['YouTube Subscribers', fmtCount(creator.youtubeSubscribers)],
-              ['Registered On', fmtDate(creator.createdAt)],
-              ['Meets 50K Requirement', meetsThreshold ? 'Yes' : 'No'],
-            ].map(([k, v]) => (
-              <div key={k} className="bg-slate-50 rounded-xl p-3">
-                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">{k}</p>
-                <p className="text-sm font-bold text-slate-800">{v || '—'}</p>
-              </div>
-            ))}
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Instagram Followers</p>
+              <input
+                type="number"
+                min="0"
+                value={statsForm.instagramFollowers}
+                onChange={e => setStatsForm(f => ({ ...f, instagramFollowers: e.target.value }))}
+                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+              />
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">YouTube Subscribers</p>
+              <input
+                type="number"
+                min="0"
+                value={statsForm.youtubeSubscribers}
+                onChange={e => setStatsForm(f => ({ ...f, youtubeSubscribers: e.target.value }))}
+                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+              />
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Registered On</p>
+              <p className="text-sm font-bold text-slate-800">{fmtDate(creator.createdAt)}</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Meets 50K Requirement</p>
+              <p className="text-sm font-bold text-slate-800">{meetsThreshold ? 'Yes' : 'No'}</p>
+            </div>
             {creator.bio && (
               <div className="col-span-2 bg-slate-50 rounded-xl p-3">
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Bio</p>
@@ -72,10 +130,25 @@ function CreatorDetailModal({ creator, onClose, onVerify }) {
               </div>
             )}
           </div>
+
+          <div className="flex items-center justify-between gap-3 mt-3">
+            {statsError && <p className="text-xs text-danger font-semibold">{statsError}</p>}
+            <button
+              onClick={handleSaveStats}
+              disabled={savingStats}
+              className="ml-auto bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-4 py-2 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingStats ? 'Saving…' : 'Save Follower Counts'}
+            </button>
+          </div>
+
           {!meetsThreshold && creator.status !== 'VERIFIED' && (
             <p className="text-xs text-warning bg-warning/8 rounded-xl p-3 mt-4">
               This creator doesn't yet meet the 50K follower/subscriber requirement — approving will be rejected by the backend.
             </p>
+          )}
+          {actionError && (
+            <p className="text-xs text-danger bg-danger/8 rounded-xl p-3 mt-3 font-semibold">{actionError}</p>
           )}
         </div>
 
@@ -113,6 +186,7 @@ export default function CreatorsPage() {
   const [error, setError] = useState('')
   const [stats, setStats] = useState(null)
   const [viewCreator, setViewCreator] = useState(null)
+  const [actionError, setActionError] = useState('')
 
   const loadStats = useCallback(() => {
     Promise.all([
@@ -149,10 +223,20 @@ export default function CreatorsPage() {
   useEffect(() => { setPage(1) }, [statusFilter])
 
   const handleVerify = async (creatorId, status) => {
-    await verifyCreator(creatorId, status)
-    loadCreators()
-    loadStats()
-    setViewCreator(v => v && v._id === creatorId ? { ...v, status } : v)
+    setActionError('')
+    try {
+      await verifyCreator(creatorId, status)
+      loadCreators()
+      loadStats()
+      setViewCreator(v => v && v._id === creatorId ? { ...v, status } : v)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not update creator status.')
+    }
+  }
+
+  const handleStatsSaved = (creatorId, updatedFields) => {
+    setViewCreator(v => v && v._id === creatorId ? { ...v, ...updatedFields } : v)
+    setCreators(prev => prev.map(c => c._id === creatorId ? { ...c, ...updatedFields } : c))
   }
 
   const total = stats?.total ?? 0
@@ -199,6 +283,9 @@ export default function CreatorsPage() {
 
       {error && (
         <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">{error}</div>
+      )}
+      {actionError && (
+        <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">{actionError}</div>
       )}
 
       {/* Table */}
@@ -255,7 +342,7 @@ export default function CreatorsPage() {
         </div>
       </div>
 
-      {viewCreator && <CreatorDetailModal creator={viewCreator} onClose={() => setViewCreator(null)} onVerify={handleVerify} />}
+      {viewCreator && <CreatorDetailModal creator={viewCreator} onClose={() => { setViewCreator(null); setActionError('') }} onVerify={handleVerify} actionError={actionError} onStatsSaved={handleStatsSaved} />}
     </div>
   )
 }

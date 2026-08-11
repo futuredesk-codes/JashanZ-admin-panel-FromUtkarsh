@@ -19,6 +19,8 @@ import BusinessesPage    from './pages/admin/BusinessesPage'
 import CreatorsPage      from './pages/admin/CreatorsPage'
 import CustomersPage     from './pages/admin/CustomersPage'
 import CategoriesPage    from './pages/admin/CategoriesPage'
+import CirclesPage       from './pages/admin/CirclesPage'
+import FinancePage       from './pages/admin/FinancePage'
 import SupportUsersPage  from './pages/admin/SupportUsersPage'
 import FinanceUsersPage  from './pages/admin/FinanceUsersPage'
 import RolesPage         from './pages/admin/RolesPage'
@@ -45,6 +47,8 @@ export default function App() {
         <Route path="creators"      element={<CreatorsPage />} />
         <Route path="customers"     element={<CustomersPage />} />
         <Route path="categories"    element={<CategoriesPage />} />
+        <Route path="circles"       element={<CirclesPage />} />
+        <Route path="finance"       element={<FinancePage />} />
         <Route path="support-users" element={<SupportUsersPage />} />
         <Route path="finance-users" element={<FinanceUsersPage />} />
         <Route path="roles"         element={<RolesPage />} />

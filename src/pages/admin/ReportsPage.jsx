@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { exportFinanceReport } from '../../api/finance'
+import { ApiError } from '../../api/client'
 
-/* ── Report sections ── */
+/* ── Report definitions: each maps a UI card to a real backend `type` + expected columns ── */
 const REPORT_SECTIONS = [
   {
     key: 'users',
@@ -13,9 +15,12 @@ const REPORT_SECTIONS = [
       </svg>
     ),
     reports: [
-      {name:'Customer Registrations Report', desc:'New customer signups by date range and city'},
-      {name:'Customer Activity Report', desc:'Active vs inactive customer metrics and engagement'},
-      {name:'Suspended Accounts Report', desc:'All suspended and banned accounts with reasons'},
+      { type: 'customers', name: 'Customer Registrations Report', desc: 'New customer signups by date range',
+        columns: [['name','Name'],['username','Username'],['phoneNumber','Phone'],['email','Email'],['isVerified','Verified'],['createdAt','Registered On']] },
+      { type: 'customerActivity', name: 'Customer Activity Report', desc: 'Active vs inactive customer metrics and engagement',
+        columns: [['name','Name'],['username','Username'],['isActive','Active'],['isProfileComplete','Profile Complete'],['updatedAt','Last Updated']] },
+      { type: 'suspendedAccounts', name: 'Suspended Accounts Report', desc: 'All suspended/deactivated accounts',
+        columns: [['name','Name'],['username','Username'],['phoneNumber','Phone'],['updatedAt','Suspended/Updated On']] },
     ],
   },
   {
@@ -28,10 +33,14 @@ const REPORT_SECTIONS = [
       </svg>
     ),
     reports: [
-      {name:'Vendor Registration Report', desc:'All registered vendors with status breakdown'},
-      {name:'Approved Vendors Report', desc:'Active approved businesses by category and city'},
-      {name:'Category-wise Vendor Report', desc:'Vendor distribution across all service categories'},
-      {name:'City-wise Vendor Report', desc:'Geographic distribution of vendors across cities'},
+      { type: 'vendor', name: 'Vendor Registration Report', desc: 'All registered vendors with status breakdown',
+        columns: [['username','Business'],['category','Category'],['status','Status'],['isPaid','Registration Paid'],['createdAt','Registered On']] },
+      { type: 'approvedVendors', name: 'Approved Vendors Report', desc: 'Active approved businesses by category and area',
+        columns: [['username','Business'],['category','Category'],['area','Area'],['createdAt','Approved/Registered On']] },
+      { type: 'categoryVendors', name: 'Category-wise Vendor Report', desc: 'Vendor distribution across all service categories',
+        columns: [['category','Category'],['vendorCount','Vendor Count']] },
+      { type: 'cityVendors', name: 'City-wise Vendor Report', desc: 'Geographic distribution of vendors across areas',
+        columns: [['area','Area'],['vendorCount','Vendor Count']] },
     ],
   },
   {
@@ -44,11 +53,16 @@ const REPORT_SECTIONS = [
       </svg>
     ),
     reports: [
-      {name:'Booking Summary Report', desc:'Total bookings with status breakdown and trends'},
-      {name:'Commission Revenue Report', desc:'Platform commission earnings by category and period'},
-      {name:'Recharge Revenue Report', desc:'Vendor wallet recharge transactions and totals'},
-      {name:'Settlement Report', desc:'Completed vendor settlements and pending amounts'},
-      {name:'Refund Report', desc:'All refund transactions with reasons and statuses'},
+      { type: 'bookings', name: 'Booking Summary Report', desc: 'Total bookings with status breakdown and trends',
+        columns: [['business','Business'],['serviceType','Service'],['status','Status'],['paymentMethod','Payment Method'],['totalAmount','Amount'],['createdAt','Booked On']] },
+      { type: 'commissions', name: 'Commission Revenue Report', desc: 'Platform commission earnings by period',
+        columns: [['business','Business'],['bookingAmount','Booking Amount'],['commissionRate','Rate %'],['commissionAmount','Commission'],['platformRevenue','Platform Revenue'],['status','Status'],['createdAt','Date']] },
+      { type: 'recharges', name: 'Recharge Revenue Report', desc: 'Vendor wallet recharge transactions and totals',
+        columns: [['business','Business'],['coins','Coins'],['amountPaid','Amount Paid'],['razorpayOrderId','Order ID'],['createdAt','Date']] },
+      { type: 'settlements', name: 'Settlement Report', desc: 'Completed vendor settlements and pending amounts',
+        columns: [['business','Business'],['totalAmount','Amount'],['status','Status'],['razorpayPayoutId','Payout ID'],['processedAt','Processed On'],['createdAt','Created On']] },
+      { type: 'refunds', name: 'Refund Report', desc: 'All refund transactions with statuses',
+        columns: [['business','Business'],['user','Customer'],['totalAmount','Amount'],['razorpayRefundId','Refund ID'],['status','Status'],['createdAt','Date']] },
     ],
   },
   {
@@ -61,23 +75,113 @@ const REPORT_SECTIONS = [
       </svg>
     ),
     reports: [
-      {name:'Vendor Approval Report', desc:'Approval and rejection summary for vendor onboarding'},
-      {name:'Ticket Summary Report', desc:'Support ticket volume, status, and resolution times'},
-      {name:'Escalated Tickets Report', desc:'Tickets escalated beyond first-level support'},
+      { type: 'vendorApproval', name: 'Vendor Approval Report', desc: 'Approval and rejection summary for vendor onboarding',
+        columns: [['status','Status'],['count','Count']] },
+      { type: 'tickets', name: 'Ticket Summary Report', desc: 'Support ticket volume by status and type',
+        columns: [['status','Status'],['type','Type'],['count','Count']] },
+      { type: 'escalatedTickets', name: 'Escalated Tickets Report', desc: 'Tickets escalated beyond first-level support',
+        columns: [['raisedByModel','Raised By'],['subject','Subject'],['priority','Priority'],['status','Status'],['createdAt','Date']] },
     ],
   },
 ]
+
+const ALL_REPORTS = REPORT_SECTIONS.flatMap((s) => s.reports)
 
 /* ── Icons ── */
 const IconDownload = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 const IconCalendar = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
 
+/* ── CSV / export helpers ── */
+const csvEscape = (v) => {
+  const s = v === undefined || v === null ? '' : String(v)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+const flattenValue = (v) => {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'object') {
+    if (v.username) return v.username
+    if (v.name) return v.name
+    if (v._id) return String(v._id)
+    return ''
+  }
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString('en-IN')
+  return v
+}
+
+const downloadBlob = (content, mime, filename) => {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+const buildCsv = (columns, rows) => {
+  const header = columns.map(([, label]) => label)
+  const lines = [header.map(csvEscape).join(',')]
+  for (const row of rows) {
+    lines.push(columns.map(([key]) => csvEscape(flattenValue(row[key]))).join(','))
+  }
+  return lines.join('\n')
+}
+
+const buildHtmlTable = (columns, rows, title) => {
+  const head = columns.map(([, label]) => `<th>${label}</th>`).join('')
+  const body = rows.length
+    ? rows.map((row) => `<tr>${columns.map(([key]) => `<td>${flattenValue(row[key])}</td>`).join('')}</tr>`).join('')
+    : `<tr><td colspan="${columns.length}" style="text-align:center;color:#94a3b8">No data for the selected date range</td></tr>`
+  return `<html><head><meta charset="utf-8"><title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:16px}
+      h1{font-size:16px;margin-bottom:12px}
+      table{border-collapse:collapse;width:100%}
+      th,td{border:1px solid #cbd5e1;padding:6px 10px;font-size:12px;text-align:left}
+      th{background:#f1f5f9}
+    </style></head>
+    <body><h1>${title}</h1><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`
+}
+
 /* ── Report Card ── */
-function ReportCard({ report }) {
+function ReportCard({ report, dateRange, onError }) {
   const [generating, setGenerating] = useState(null)
-  const handleDownload = (format) => {
+
+  const fetchRows = async () => {
+    const res = await exportFinanceReport({ type: report.type, from: dateRange.from, to: dateRange.to })
+    return res?.data || []
+  }
+
+  const handleDownload = async (format) => {
     setGenerating(format)
-    setTimeout(() => setGenerating(null), 1200)
+    onError('')
+    try {
+      const rows = await fetchRows()
+      const stamp = new Date().toISOString().slice(0, 10)
+      const filenameBase = `${report.type}-${stamp}`
+
+      if (format === 'CSV') {
+        downloadBlob(buildCsv(report.columns, rows), 'text/csv;charset=utf-8;', `${filenameBase}.csv`)
+      } else if (format === 'Excel') {
+        const html = buildHtmlTable(report.columns, rows, report.name)
+        downloadBlob(html, 'application/vnd.ms-excel;charset=utf-8;', `${filenameBase}.xls`)
+      } else if (format === 'PDF') {
+        const html = buildHtmlTable(report.columns, rows, report.name)
+        const win = window.open('', '_blank')
+        if (!win) throw new Error('Popup blocked — allow popups to export PDF')
+        win.document.write(html)
+        win.document.close()
+        win.onload = () => win.print()
+      }
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : err.message || 'Export failed')
+    } finally {
+      setGenerating(null)
+    }
   }
 
   return (
@@ -97,7 +201,8 @@ function ReportCard({ report }) {
             <button
               key={fmt}
               onClick={() => handleDownload(fmt)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${styles[fmt]} ${generating===fmt ? 'opacity-60' : ''}`}
+              disabled={generating !== null}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${styles[fmt]} ${generating===fmt ? 'opacity-60' : ''} disabled:cursor-not-allowed`}
             >
               {generating===fmt ? (
                 <span className="flex items-center gap-1">
@@ -117,13 +222,28 @@ function ReportCard({ report }) {
 
 /* ── Main Page ── */
 export default function ReportsPage() {
-  const [fromDate, setFromDate] = useState('2024-01-01')
-  const [toDate, setToDate] = useState('2024-06-16')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleGenerateAll = () => {
+  const handleGenerateAll = async () => {
     setGenerating(true)
-    setTimeout(() => setGenerating(false), 2000)
+    setError('')
+    try {
+      for (const report of ALL_REPORTS) {
+        const res = await exportFinanceReport({ type: report.type, from: fromDate, to: toDate })
+        const rows = res?.data || []
+        const stamp = new Date().toISOString().slice(0, 10)
+        downloadBlob(buildCsv(report.columns, rows), 'text/csv;charset=utf-8;', `${report.type}-${stamp}.csv`)
+        // stagger downloads so browsers don't block a burst of simultaneous file saves
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err.message || 'Failed to generate all reports')
+    } finally {
+      setGenerating(false)
+    }
   }
 
   return (
@@ -132,6 +252,10 @@ export default function ReportsPage() {
         <h1 className="text-xl font-black text-slate-800">Reports</h1>
         <p className="text-sm text-slate-500 mt-0.5">Generate and download platform reports in CSV, Excel or PDF format</p>
       </div>
+
+      {error && (
+        <div className="bg-danger/8 border border-danger/20 text-danger text-sm rounded-xl px-4 py-2.5">{error}</div>
+      )}
 
       {/* Date range filter */}
       <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap items-center gap-3">
@@ -157,6 +281,14 @@ export default function ReportsPage() {
             onChange={e => setToDate(e.target.value)}
           />
         </div>
+        {(fromDate || toDate) && (
+          <button
+            onClick={() => { setFromDate(''); setToDate('') }}
+            className="text-xs font-semibold text-slate-400 hover:text-slate-600"
+          >
+            Clear
+          </button>
+        )}
         <div className="ml-auto">
           <button
             onClick={handleGenerateAll}
@@ -171,7 +303,7 @@ export default function ReportsPage() {
             ) : (
               <>
                 <IconDownload />
-                Generate All
+                Generate All (CSV)
               </>
             )}
           </button>
@@ -193,7 +325,7 @@ export default function ReportsPage() {
           {/* Report cards grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {section.reports.map(report => (
-              <ReportCard key={report.name} report={report} />
+              <ReportCard key={report.type} report={report} dateRange={{ from: fromDate, to: toDate }} onError={setError} />
             ))}
           </div>
         </div>

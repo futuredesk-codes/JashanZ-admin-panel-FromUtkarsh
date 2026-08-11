@@ -82,3 +82,13 @@ export const api = {
   put: (path, body) => request(path, { method: 'PUT', body }),
   delete: (path) => request(path, { method: 'DELETE' }),
 }
+
+/** Uploads a file directly to S3 using a presigned PUT URL obtained from the backend. */
+export async function uploadToPresignedUrl(presignedUrl, file) {
+  const res = await fetch(presignedUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  })
+  if (!res.ok) throw new ApiError('File upload failed', res.status, null)
+}

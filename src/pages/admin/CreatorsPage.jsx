@@ -28,7 +28,6 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
   })
   const [savingStats, setSavingStats] = useState(false)
   const [statsError, setStatsError] = useState('')
-  const meetsThreshold = creator.instagramFollowers >= 50000 || creator.youtubeSubscribers >= 50000
 
   useEffect(() => {
     setStatsForm({
@@ -119,10 +118,6 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Registered On</p>
               <p className="text-sm font-bold text-slate-800">{fmtDate(creator.createdAt)}</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Meets 50K Requirement</p>
-              <p className="text-sm font-bold text-slate-800">{meetsThreshold ? 'Yes' : 'No'}</p>
-            </div>
             {creator.bio && (
               <div className="col-span-2 bg-slate-50 rounded-xl p-3">
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Bio</p>
@@ -142,11 +137,6 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
             </button>
           </div>
 
-          {!meetsThreshold && creator.status !== 'VERIFIED' && (
-            <p className="text-xs text-warning bg-warning/8 rounded-xl p-3 mt-4">
-              This creator doesn't yet meet the 50K follower/subscriber requirement — approving will be rejected by the backend.
-            </p>
-          )}
           {actionError && (
             <p className="text-xs text-danger bg-danger/8 rounded-xl p-3 mt-3 font-semibold">{actionError}</p>
           )}

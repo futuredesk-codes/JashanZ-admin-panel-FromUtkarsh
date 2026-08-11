@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 
+import { AdminAuthProvider } from './context/AdminAuthContext'
+import ProtectedRoute   from './components/ProtectedRoute'
+
 import AdminLoginPage   from './pages/admin/LoginPage'
 import AdminDashboard   from './pages/admin/DashboardPage'
 import AdminLayout      from './components/layout/AdminLayout'
@@ -13,8 +16,11 @@ import FinanceLayout    from './components/layout/FinanceLayout'
 import PlaceholderPage  from './pages/PlaceholderPage'
 
 import BusinessesPage    from './pages/admin/BusinessesPage'
+import CreatorsPage      from './pages/admin/CreatorsPage'
 import CustomersPage     from './pages/admin/CustomersPage'
 import CategoriesPage    from './pages/admin/CategoriesPage'
+import CirclesPage       from './pages/admin/CirclesPage'
+import FinancePage       from './pages/admin/FinancePage'
 import SupportUsersPage  from './pages/admin/SupportUsersPage'
 import FinanceUsersPage  from './pages/admin/FinanceUsersPage'
 import RolesPage         from './pages/admin/RolesPage'
@@ -24,17 +30,25 @@ import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 
 export default function App() {
   return (
+    <AdminAuthProvider>
     <Routes>
       <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
       {/* ── Admin Portal ── */}
       <Route path="/admin/login" element={<AdminLoginPage />} />
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin" element={
+        <ProtectedRoute roles={['SUPER_ADMIN', 'ADMIN']} redirectTo="/admin/login">
+          <AdminLayout />
+        </ProtectedRoute>
+      }>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard"     element={<AdminDashboard />} />
         <Route path="businesses"    element={<BusinessesPage />} />
+        <Route path="creators"      element={<CreatorsPage />} />
         <Route path="customers"     element={<CustomersPage />} />
         <Route path="categories"    element={<CategoriesPage />} />
+        <Route path="circles"       element={<CirclesPage />} />
+        <Route path="finance"       element={<FinancePage />} />
         <Route path="support-users" element={<SupportUsersPage />} />
         <Route path="finance-users" element={<FinanceUsersPage />} />
         <Route path="roles"         element={<RolesPage />} />
@@ -68,5 +82,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </AdminAuthProvider>
   )
 }

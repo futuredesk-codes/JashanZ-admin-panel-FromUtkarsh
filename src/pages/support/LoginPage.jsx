@@ -1,12 +1,43 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supportLogin } from '../../api/support'
+import { ApiError } from '../../api/client'
+import { decodeJwtPayload } from '../../utils/jwt'
+import { useSupportAuth } from '../../context/SupportAuthContext'
+
+const ALLOWED_ROLES = ['SUPPORT_LEAD', 'SUPPORT_AGENT', 'SUPER_ADMIN', 'ADMIN']
 
 const INPUT = 'w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-all'
 
 export default function SupportLoginPage() {
   const navigate = useNavigate()
+  const { login: loginAuth } = useSupportAuth()
   const [form, setForm] = useState({ username: '', password: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
+
+  const canSubmit = form.username.trim().length >= 3 && form.password.length >= 1
+
+  const handleSubmit = async () => {
+    if (!canSubmit || loading) return
+    setError('')
+    setLoading(true)
+    try {
+      const data = await supportLogin(form.username.trim(), form.password)
+      const payload = decodeJwtPayload(data.token)
+      if (!payload || !ALLOWED_ROLES.includes(payload.role)) {
+        setError('This account does not have access to the Support Portal.')
+        return
+      }
+      loginAuth({ token: data.token, username: payload.username, role: payload.role })
+      navigate('/support/dashboard')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex bg-[#0f172a]">
@@ -43,18 +74,32 @@ export default function SupportLoginPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">Username</label>
-              <input placeholder="Enter username" value={form.username} onChange={set('username')} className={INPUT} />
+              <input
+                placeholder="Enter username"
+                value={form.username}
+                onChange={set('username')}
+                onKeyDown={e => e.key === 'Enter' && canSubmit && handleSubmit()}
+                className={INPUT}
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5">Password</label>
-              <input type="password" placeholder="Enter password" value={form.password} onChange={set('password')} className={INPUT} />
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={form.password}
+                onChange={set('password')}
+                onKeyDown={e => e.key === 'Enter' && canSubmit && handleSubmit()}
+                className={INPUT}
+              />
             </div>
+            {error && <p className="text-sm text-danger font-semibold">{error}</p>}
             <button
-              onClick={() => navigate('/support/dashboard')}
-              disabled={!form.username || !form.password}
-              className="w-full py-3 rounded-xl bg-linear-to-r from-brand to-brand-dark text-white font-bold text-sm transition-all disabled:opacity-40 hover:shadow-lg hover:shadow-brand/25"
+              onClick={handleSubmit}
+              disabled={!canSubmit || loading}
+              className="w-full py-3 rounded-xl bg-linear-to-r from-brand to-brand-dark text-white font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-brand/25"
             >
-              Login to Support Portal
+              {loading ? 'Signing in...' : 'Login to Support Portal'}
             </button>
           </div>
         </div>

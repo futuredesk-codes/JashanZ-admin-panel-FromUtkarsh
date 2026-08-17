@@ -1,5 +1,9 @@
 import { api } from './client'
 
+/* ── Auth ── */
+export const financeLogin = (username, password) =>
+  api.post('/finance/auth/login', { username, password })
+
 /* ── View (read-only, works for FINANCE_ADMIN/FINANCE_STAFF/SUPER_ADMIN) ── */
 export const getFinanceDashboard = () => api.get('/finance/dashboard')
 export const getVendorPayments = (params) => api.get('/finance/vendor-payments', params)

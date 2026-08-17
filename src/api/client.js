@@ -1,6 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
 
+// Each portal keeps its own session so they can stay logged in simultaneously
+// across browser tabs (e.g. Admin opens Support/Finance in new tabs without
+// losing its own session). Centralized here as the single source of truth —
+// the auth contexts import their key from this file rather than each other.
 export const AUTH_STORAGE_KEY = 'jashanz_admin_auth'
+export const SUPPORT_AUTH_STORAGE_KEY = 'jashanz_support_auth'
+export const FINANCE_AUTH_STORAGE_KEY = 'jashanz_finance_auth'
 
 export class ApiError extends Error {
   constructor(message, status, data) {
@@ -11,9 +17,19 @@ export class ApiError extends Error {
   }
 }
 
+// A single browser can have all 3 portal sessions active at once (different
+// tabs), so which token applies depends on which portal's page is making the
+// call, not just "whichever token exists" — resolved from the current path.
+function currentAuthStorageKey() {
+  const path = window.location.pathname
+  if (path.startsWith('/support')) return SUPPORT_AUTH_STORAGE_KEY
+  if (path.startsWith('/finance')) return FINANCE_AUTH_STORAGE_KEY
+  return AUTH_STORAGE_KEY
+}
+
 export function getStoredAuth() {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    const raw = localStorage.getItem(currentAuthStorageKey())
     return raw ? JSON.parse(raw) : null
   } catch {
     return null

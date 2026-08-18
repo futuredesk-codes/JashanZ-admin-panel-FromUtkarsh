@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/
 export const AUTH_STORAGE_KEY = 'jashanz_admin_auth'
 export const SUPPORT_AUTH_STORAGE_KEY = 'jashanz_support_auth'
 export const FINANCE_AUTH_STORAGE_KEY = 'jashanz_finance_auth'
+export const ADMANAGER_AUTH_STORAGE_KEY = 'jashanz_admanager_auth'
 
 export class ApiError extends Error {
   constructor(message, status, data) {
@@ -24,6 +25,7 @@ function currentAuthStorageKey() {
   const path = window.location.pathname
   if (path.startsWith('/support')) return SUPPORT_AUTH_STORAGE_KEY
   if (path.startsWith('/finance')) return FINANCE_AUTH_STORAGE_KEY
+  if (path.startsWith('/admanager')) return ADMANAGER_AUTH_STORAGE_KEY
   return AUTH_STORAGE_KEY
 }
 

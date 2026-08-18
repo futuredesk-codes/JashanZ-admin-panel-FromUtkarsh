@@ -8,6 +8,7 @@ const TITLES = {
   '/admin/categories':    'Service Categories',
   '/admin/support-users': 'Support Users',
   '/admin/finance-users': 'Finance Users',
+  '/admin/admanager-users': 'AdManager Users',
   '/admin/reports':       'Reports',
   '/admin/audit':         'Audit Logs',
   '/admin/settings':      'Settings',
@@ -68,6 +69,15 @@ export default function AdminHeader({ onMenuClick }) {
           >
             <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
             Finance
+          </a>
+          <a
+            href="/admanager/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-info shrink-0" />
+            AdManager
           </a>
         </div>
 

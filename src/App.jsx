@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext'
 import { FinanceAuthProvider, useFinanceAuth } from './context/FinanceAuthContext'
 import { SupportAuthProvider, useSupportAuth } from './context/SupportAuthContext'
+import { AdManagerAuthProvider, useAdManagerAuth } from './context/AdManagerAuthContext'
 import ProtectedRoute   from './components/ProtectedRoute'
 import PagePermissionGuard from './components/PagePermissionGuard'
 
@@ -18,6 +19,10 @@ import SupportTicketsPage   from './pages/support/TicketsPage'
 import FinanceLoginPage from './pages/finance/LoginPage'
 import FinanceLayout    from './components/layout/FinanceLayout'
 
+import AdManagerLoginPage     from './pages/admanager/LoginPage'
+import AdManagerLayout        from './components/layout/AdManagerLayout'
+import AdManagerDashboardPage from './pages/admanager/DashboardPage'
+
 import PlaceholderPage  from './pages/PlaceholderPage'
 
 import BusinessesPage    from './pages/admin/BusinessesPage'
@@ -28,17 +33,20 @@ import CirclesPage       from './pages/admin/CirclesPage'
 import FinancePage       from './pages/admin/FinancePage'
 import SupportUsersPage  from './pages/admin/SupportUsersPage'
 import FinanceUsersPage  from './pages/admin/FinanceUsersPage'
+import AdManagerUsersPage from './pages/admin/AdManagerUsersPage'
 import ReportsPage       from './pages/admin/ReportsPage'
 import AuditLogsPage     from './pages/admin/AuditLogsPage'
 import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 
 const FINANCE_ROLES = ['FINANCE_ADMIN', 'FINANCE_STAFF', 'SUPER_ADMIN']
 const SUPPORT_ROLES = ['SUPPORT_LEAD', 'SUPPORT_AGENT', 'SUPER_ADMIN', 'ADMIN']
+const ADMANAGER_ROLES = ['ADMANAGER']
 
 function AppRoutes() {
   const { auth: adminAuth } = useAdminAuth()
   const { auth: financeAuth } = useFinanceAuth()
   const { auth: supportAuth } = useSupportAuth()
+  const { auth: admanagerAuth } = useAdManagerAuth()
 
   return (
     <Routes>
@@ -61,6 +69,7 @@ function AppRoutes() {
         <Route path="finance"       element={<PagePermissionGuard pageId="adminFinance"><FinancePage /></PagePermissionGuard>} />
         <Route path="support-users" element={<PagePermissionGuard pageId="staff"><SupportUsersPage /></PagePermissionGuard>} />
         <Route path="finance-users" element={<PagePermissionGuard pageId="staff"><FinanceUsersPage /></PagePermissionGuard>} />
+        <Route path="admanager-users" element={<PagePermissionGuard pageId="adManagerAccess"><AdManagerUsersPage /></PagePermissionGuard>} />
         <Route path="reports"       element={<PagePermissionGuard pageId="reports"><ReportsPage /></PagePermissionGuard>} />
         <Route path="audit"         element={<PagePermissionGuard pageId="auditLogs"><AuditLogsPage /></PagePermissionGuard>} />
         <Route path="settings"      element={<PagePermissionGuard pageId="settings"><AdminSettingsPage /></PagePermissionGuard>} />
@@ -97,6 +106,17 @@ function AppRoutes() {
         <Route path="reports"     element={<PagePermissionGuard pageId="financeReports"><PlaceholderPage title="Finance Reports" /></PagePermissionGuard>} />
       </Route>
 
+      {/* ── AdManager Portal ── */}
+      <Route path="/admanager/login" element={<AdManagerLoginPage />} />
+      <Route path="/admanager" element={
+        <ProtectedRoute auth={admanagerAuth} roles={ADMANAGER_ROLES} redirectTo="/admanager/login">
+          <AdManagerLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<AdManagerDashboardPage />} />
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
@@ -107,7 +127,9 @@ export default function App() {
     <AdminAuthProvider>
       <FinanceAuthProvider>
         <SupportAuthProvider>
-          <AppRoutes />
+          <AdManagerAuthProvider>
+            <AppRoutes />
+          </AdManagerAuthProvider>
         </SupportAuthProvider>
       </FinanceAuthProvider>
     </AdminAuthProvider>

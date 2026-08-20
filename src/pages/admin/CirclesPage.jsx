@@ -3,6 +3,7 @@ import { getCircles, createCircle, updateCircle, toggleCircle, deleteCircle } fr
 import { getCategories } from '../../api/categories'
 import { getPresignedUrl } from '../../api/upload'
 import { ApiError, uploadToPresignedUrl } from '../../api/client'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const EMPTY_FORM = { name: '', description: '', category: '', city: [], coverImage: '' }
 
@@ -235,6 +236,8 @@ export default function CirclesPage() {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingCircle, setEditingCircle] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadCircles = useCallback(() => {
     setLoading(true)
@@ -262,15 +265,17 @@ export default function CirclesPage() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this event circle permanently? This cannot be undone.')) return
-    const prev = circles
-    setCircles(cs => cs.filter(c => c._id !== id))
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await deleteCircle(id)
+      await deleteCircle(deleteTarget._id)
+      setDeleteTarget(null)
+      loadCircles()
     } catch (err) {
-      setCircles(prev)
       setError(err instanceof ApiError ? err.message : 'Could not delete circle.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -364,7 +369,7 @@ export default function CirclesPage() {
                 <button onClick={() => handleToggle(circle._id)} className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${circle.isActive ? 'bg-warning/10 text-warning hover:bg-warning/20' : 'bg-success/10 text-success hover:bg-success/20'}`}>
                   {circle.isActive ? 'Deactivate' : 'Activate'}
                 </button>
-                <button onClick={() => handleDelete(circle._id)} className="bg-danger/8 text-danger rounded-xl px-3 py-2 text-xs font-bold hover:bg-danger/15 flex items-center justify-center" title="Delete">
+                <button onClick={() => setDeleteTarget(circle)} className="bg-danger/8 text-danger rounded-xl px-3 py-2 text-xs font-bold hover:bg-danger/15 flex items-center justify-center" title="Delete">
                   <IconTrash />
                 </button>
               </div>
@@ -379,6 +384,17 @@ export default function CirclesPage() {
           categories={categories}
           onClose={() => setShowModal(false)}
           onSave={handleSave}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete this event circle?"
+          message={`"${deleteTarget.name}" and all its ${deleteTarget.membersCount || 0} member records will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete Circle"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

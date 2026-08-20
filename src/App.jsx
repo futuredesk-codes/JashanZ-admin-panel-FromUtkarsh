@@ -30,6 +30,7 @@ import CreatorsPage      from './pages/admin/CreatorsPage'
 import CustomersPage     from './pages/admin/CustomersPage'
 import CategoriesPage    from './pages/admin/CategoriesPage'
 import CirclesPage       from './pages/admin/CirclesPage'
+import TrendingEventsPage from './pages/admin/TrendingEventsPage'
 import FinancePage       from './pages/admin/FinancePage'
 import SupportUsersPage  from './pages/admin/SupportUsersPage'
 import FinanceUsersPage  from './pages/admin/FinanceUsersPage'
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="customers"     element={<PagePermissionGuard pageId="customers"><CustomersPage /></PagePermissionGuard>} />
         <Route path="categories"    element={<PagePermissionGuard pageId="categories"><CategoriesPage /></PagePermissionGuard>} />
         <Route path="circles"       element={<PagePermissionGuard pageId="circles"><CirclesPage /></PagePermissionGuard>} />
+        <Route path="trending-events" element={<PagePermissionGuard pageId="trendingEvents"><TrendingEventsPage /></PagePermissionGuard>} />
         <Route path="finance"       element={<PagePermissionGuard pageId="adminFinance"><FinancePage /></PagePermissionGuard>} />
         <Route path="support-users" element={<PagePermissionGuard pageId="staff"><SupportUsersPage /></PagePermissionGuard>} />
         <Route path="finance-users" element={<PagePermissionGuard pageId="staff"><FinanceUsersPage /></PagePermissionGuard>} />

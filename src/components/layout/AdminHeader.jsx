@@ -8,7 +8,7 @@ const TITLES = {
   '/admin/categories':    'Service Categories',
   '/admin/support-users': 'Support Users',
   '/admin/finance-users': 'Finance Users',
-  '/admin/roles':         'Roles & Permissions',
+  '/admin/admanager-users': 'AdManager Users',
   '/admin/reports':       'Reports',
   '/admin/audit':         'Audit Logs',
   '/admin/settings':      'Settings',
@@ -48,6 +48,37 @@ export default function AdminHeader({ onMenuClick }) {
             placeholder="Search..."
             className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 w-44 lg:w-52 transition-all"
           />
+        </div>
+
+        {/* Portal shortcuts — open in a new tab so the admin session here stays alive */}
+        <div className="hidden md:flex items-center gap-1.5">
+          <a
+            href="/support/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+            Support
+          </a>
+          <a
+            href="/finance/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
+            Finance
+          </a>
+          <a
+            href="/admanager/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-info shrink-0" />
+            AdManager
+          </a>
         </div>
 
         {/* Notifications */}

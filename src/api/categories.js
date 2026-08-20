@@ -7,3 +7,5 @@ export const createCategory = (payload) => api.post('/admin/categories/create', 
 export const updateCategory = (id, payload) => api.post(`/admin/categories/${id}/update`, payload)
 
 export const toggleCategory = (id) => api.post(`/admin/categories/${id}/toggle`)
+
+export const deleteCategory = (id) => api.post(`/admin/categories/${id}/delete`)

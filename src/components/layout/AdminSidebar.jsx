@@ -1,10 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '../../context/AdminAuthContext'
+import { usePermissions } from '../../context/PermissionsContext'
 
 const NAV_GROUPS = [
   {
     items: [
-      { id: 'dashboard', label: 'Dashboard', path: '/admin/dashboard', icon: () => (
+      { id: 'dashboard', pageId: 'dashboard', label: 'Dashboard', path: '/admin/dashboard', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -15,37 +16,37 @@ const NAV_GROUPS = [
   {
     label: 'MANAGEMENT',
     items: [
-      { id: 'businesses', label: 'Businesses', path: '/admin/businesses', icon: () => (
+      { id: 'businesses', pageId: 'businesses', label: 'Businesses', path: '/admin/businesses', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
         </svg>
       )},
-      { id: 'customers', label: 'Customers', path: '/admin/customers', icon: () => (
+      { id: 'customers', pageId: 'customers', label: 'Customers', path: '/admin/customers', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
           <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
         </svg>
       )},
-      { id: 'creators', label: 'Creators', path: '/admin/creators', icon: () => (
+      { id: 'creators', pageId: 'creators', label: 'Creators', path: '/admin/creators', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
         </svg>
       )},
-      { id: 'categories', label: 'Categories', path: '/admin/categories', icon: () => (
+      { id: 'categories', pageId: 'categories', label: 'Categories', path: '/admin/categories', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
           <line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1" fill="currentColor"/>
           <circle cx="3" cy="12" r="1" fill="currentColor"/><circle cx="3" cy="18" r="1" fill="currentColor"/>
         </svg>
       )},
-      { id: 'circles', label: 'Event Circles', path: '/admin/circles', icon: () => (
+      { id: 'circles', pageId: 'circles', label: 'Event Circles', path: '/admin/circles', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>
         </svg>
       )},
-      { id: 'finance', label: 'Finance', path: '/admin/finance', icon: () => (
+      { id: 'trending-events', pageId: 'trendingEvents', label: 'Trending Events', path: '/admin/trending-events', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
         </svg>
       )},
     ],
@@ -53,19 +54,19 @@ const NAV_GROUPS = [
   {
     label: 'TEAM',
     items: [
-      { id: 'support-users', label: 'Support Users', path: '/admin/support-users', icon: () => (
+      { id: 'support-users', pageId: 'staff', label: 'Support Users', path: '/admin/support-users', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.81 19.79 19.79 0 01.63 2.18 2 2 0 012.62.01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.6a16 16 0 006.29 6.29l.96-.96a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
         </svg>
       )},
-      { id: 'finance-users', label: 'Finance Users', path: '/admin/finance-users', icon: () => (
+      { id: 'finance-users', pageId: 'staff', label: 'Finance Users', path: '/admin/finance-users', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
         </svg>
       )},
-      { id: 'roles', label: 'Roles & Permissions', path: '/admin/roles', icon: () => (
+      { id: 'admanager-users', pageId: 'adManagerAccess', label: 'AdManager Users', path: '/admin/admanager-users', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2H10a2 2 0 00-2 2v16"/>
         </svg>
       )},
     ],
@@ -73,20 +74,20 @@ const NAV_GROUPS = [
   {
     label: 'ANALYTICS',
     items: [
-      { id: 'reports', label: 'Reports', path: '/admin/reports', icon: () => (
+      { id: 'reports', pageId: 'reports', label: 'Reports', path: '/admin/reports', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
           <line x1="6" y1="20" x2="6" y2="14"/>
         </svg>
       )},
-      { id: 'audit', label: 'Audit Logs', path: '/admin/audit', icon: () => (
+      { id: 'audit', pageId: 'auditLogs', label: 'Audit Logs', path: '/admin/audit', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
           <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
           <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
         </svg>
       )},
-      { id: 'settings', label: 'Settings', path: '/admin/settings', icon: () => (
+      { id: 'settings', pageId: 'settings', label: 'Settings', path: '/admin/settings', icon: () => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -96,11 +97,12 @@ const NAV_GROUPS = [
   },
 ]
 
-function NavContent({ activeId, onNavigate, onLogout }) {
+function NavContent({ groups, activeId, onNavigate, onLogout }) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
-        {NAV_GROUPS.map((group, gi) => (
+        {groups.map((group, gi) => (
+          group.items.length === 0 ? null :
           <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
             {group.label && (
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest px-3 mb-1.5">
@@ -147,8 +149,13 @@ export default function AdminSidebar({ open, onClose }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { logout } = useAdminAuth()
+  const { can } = usePermissions()
 
-  const allItems = NAV_GROUPS.flatMap(g => g.items)
+  const visibleGroups = NAV_GROUPS.map(group => ({
+    ...group,
+    items: group.items.filter(item => can(item.pageId, 'READ')),
+  }))
+  const allItems = visibleGroups.flatMap(g => g.items)
   const activeId = allItems.find(item => pathname.startsWith(item.path))?.id ?? ''
 
   function handleNavigate(path) {
@@ -180,7 +187,7 @@ export default function AdminSidebar({ open, onClose }) {
             </div>
           </div>
         </div>
-        <NavContent activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
+        <NavContent groups={visibleGroups} activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
       </aside>
 
       {/* ── Mobile bottom drawer ── */}
@@ -224,7 +231,7 @@ export default function AdminSidebar({ open, onClose }) {
         </div>
 
         <div className="overflow-y-auto" style={{ maxHeight: 'calc(82vh - 80px)' }}>
-          <NavContent activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
+          <NavContent groups={visibleGroups} activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
         </div>
       </div>
     </>

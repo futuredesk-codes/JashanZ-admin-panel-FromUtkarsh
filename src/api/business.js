@@ -5,6 +5,9 @@ export const getBusinesses = (params) => api.get('/admin/businesses/all', params
 export const verifyBusiness = (businessId, status) =>
   api.post(`/admin/business/${businessId}/verify`, { status })
 
+export const deleteBusiness = (businessId) =>
+  api.post(`/admin/business/${businessId}/delete`)
+
 export const getBusinessBookings = (businessId, params) =>
   api.get(`/admin/business/${businessId}/bookings`, params)
 

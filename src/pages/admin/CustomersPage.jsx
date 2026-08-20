@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getUsers, suspendUser, reactivateUser, getUserBookings } from '../../api/users'
+import { getUsers, suspendUser, reactivateUser, deleteUser, getUserBookings } from '../../api/users'
 import { getPlatformAnalytics } from '../../api/analytics'
 import { ApiError } from '../../api/client'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const STATUS_STYLES = {
   Active:    'bg-success/10 text-success',
@@ -24,6 +25,7 @@ const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none
 const IconPause = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
 const IconPlay = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
 const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
 
 /* ── Customer Detail Modal ── */
 function CustomerDetailModal({ cust, onClose, onToggleStatus }) {
@@ -160,6 +162,8 @@ export default function CustomersPage() {
   const [error, setError] = useState('')
   const [stats, setStats] = useState(null)
   const [viewCust, setViewCust] = useState(null)
+  const [deleteCust, setDeleteCust] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350)
@@ -194,6 +198,22 @@ export default function CustomersPage() {
     loadCustomers()
     loadStats()
     setViewCust(v => v && v._id === userId ? { ...v, isActive: !isCurrentlyActive } : v)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteCust) return
+    setDeleting(true)
+    try {
+      await deleteUser(deleteCust._id)
+      setDeleteCust(null)
+      setViewCust(v => v && v._id === deleteCust._id ? null : v)
+      loadCustomers()
+      loadStats()
+    } catch {
+      // no-op — dialog stays open so the admin can retry
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const total = stats?.totalUsers ?? 0
@@ -282,6 +302,9 @@ export default function CustomersPage() {
                       <button onClick={() => handleToggleStatus(cust._id, cust.isActive)} className={`w-7 h-7 flex items-center justify-center rounded-lg ${cust.isActive ? 'bg-warning/8 text-warning hover:bg-warning/15' : 'bg-success/8 text-success hover:bg-success/15'}`} title={cust.isActive ? 'Suspend' : 'Reactivate'}>
                         {cust.isActive ? <IconPause /> : <IconPlay />}
                       </button>
+                      <button onClick={() => setDeleteCust(cust)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15" title="Delete">
+                        <IconTrash />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -300,6 +323,17 @@ export default function CustomersPage() {
       </div>
 
       {viewCust && <CustomerDetailModal cust={viewCust} onClose={() => setViewCust(null)} onToggleStatus={handleToggleStatus} />}
+
+      {deleteCust && (
+        <ConfirmDialog
+          title="Delete this customer?"
+          message={`${deleteCust.name || deleteCust.username || 'This customer'}'s account will be permanently and irreversibly deleted — this cannot be undone. Their past bookings and reviews stay in the system, but will show this customer as removed.`}
+          confirmLabel="Delete Customer"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteCust(null)}
+        />
+      )}
     </div>
   )
 }

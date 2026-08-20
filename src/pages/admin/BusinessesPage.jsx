@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getBusinesses, verifyBusiness, getBusinessBookings, getCategories } from '../../api/business'
+import { getBusinesses, verifyBusiness, deleteBusiness, getBusinessBookings, getCategories } from '../../api/business'
 import { getPlatformAnalytics } from '../../api/analytics'
 import { ApiError } from '../../api/client'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
@@ -27,6 +28,7 @@ const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
 const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 const IconXSmall = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
 
 /* ── Business Detail Modal ── */
 function BusinessDetailModal({ biz, onClose, onVerify }) {
@@ -228,6 +230,8 @@ export default function BusinessesPage() {
   const [error, setError] = useState('')
   const [stats, setStats] = useState(null)
   const [viewBiz, setViewBiz] = useState(null)
+  const [deleteBiz, setDeleteBiz] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350)
@@ -265,6 +269,22 @@ export default function BusinessesPage() {
     loadBusinesses()
     loadStats()
     setViewBiz(v => v && v._id === businessId ? { ...v, status } : v)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteBiz) return
+    setDeleting(true)
+    try {
+      await deleteBusiness(deleteBiz._id)
+      setDeleteBiz(null)
+      setViewBiz(v => v && v._id === deleteBiz._id ? null : v)
+      loadBusinesses()
+      loadStats()
+    } catch {
+      // no-op — dialog stays open so the admin can retry
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const total = stats?.totalBusinesses ?? 0
@@ -363,6 +383,7 @@ export default function BusinessesPage() {
                       <button onClick={() => setViewBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
                       <button onClick={() => handleVerify(biz._id, 'VERIFIED')} disabled={biz.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
                       <button onClick={() => handleVerify(biz._id, 'REJECTED')} disabled={biz.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
+                      <button onClick={() => setDeleteBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
                     </div>
                   </td>
                 </tr>
@@ -381,6 +402,17 @@ export default function BusinessesPage() {
       </div>
 
       {viewBiz && <BusinessDetailModal biz={viewBiz} onClose={() => setViewBiz(null)} onVerify={handleVerify} />}
+
+      {deleteBiz && (
+        <ConfirmDialog
+          title="Delete this business?"
+          message={`${deleteBiz.profile?.name || deleteBiz.username}'s account will be permanently and irreversibly deleted — this cannot be undone. Their past bookings and reviews stay in the system, but will show this business as removed.`}
+          confirmLabel="Delete Business"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteBiz(null)}
+        />
+      )}
     </div>
   )
 }

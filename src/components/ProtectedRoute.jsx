@@ -1,9 +1,11 @@
 import { Navigate } from 'react-router-dom'
-import { useAdminAuth } from '../context/AdminAuthContext'
 
-/** Redirects to `redirectTo` unless the current session is authenticated with an allowed role. */
-export default function ProtectedRoute({ roles, redirectTo, children }) {
-  const { auth } = useAdminAuth()
+/**
+ * Redirects to `redirectTo` unless `auth` is an authenticated session with an
+ * allowed role. `auth` comes from whichever portal's auth context the caller
+ * is guarding (Admin/Finance/Support each have their own).
+ */
+export default function ProtectedRoute({ auth, roles, redirectTo, children }) {
   if (!auth?.token || !roles.includes(auth.role)) return <Navigate to={redirectTo} replace />
   return children
 }

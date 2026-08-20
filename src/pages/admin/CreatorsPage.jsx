@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getCreators, verifyCreator, updateCreatorSocialStats } from '../../api/creators'
+import { getCreators, verifyCreator, deleteCreator, updateCreatorSocialStats } from '../../api/creators'
 import { ApiError } from '../../api/client'
+import ConfirmDialog from '../../components/ConfirmDialog'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
@@ -18,6 +19,7 @@ const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
 const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 const IconXSmall = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
 
 /* ── Creator Detail Modal ── */
 function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSaved }) {
@@ -177,6 +179,8 @@ export default function CreatorsPage() {
   const [stats, setStats] = useState(null)
   const [viewCreator, setViewCreator] = useState(null)
   const [actionError, setActionError] = useState('')
+  const [deleteCreatorTarget, setDeleteCreatorTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadStats = useCallback(() => {
     Promise.all([
@@ -227,6 +231,22 @@ export default function CreatorsPage() {
   const handleStatsSaved = (creatorId, updatedFields) => {
     setViewCreator(v => v && v._id === creatorId ? { ...v, ...updatedFields } : v)
     setCreators(prev => prev.map(c => c._id === creatorId ? { ...c, ...updatedFields } : c))
+  }
+
+  const handleDelete = async () => {
+    if (!deleteCreatorTarget) return
+    setDeleting(true)
+    try {
+      await deleteCreator(deleteCreatorTarget._id)
+      setDeleteCreatorTarget(null)
+      setViewCreator(v => v && v._id === deleteCreatorTarget._id ? null : v)
+      loadCreators()
+      loadStats()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not delete creator.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const total = stats?.total ?? 0
@@ -315,6 +335,7 @@ export default function CreatorsPage() {
                       <button onClick={() => setViewCreator(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
                       <button onClick={() => handleVerify(c._id, 'VERIFIED')} disabled={c.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
                       <button onClick={() => handleVerify(c._id, 'REJECTED')} disabled={c.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
+                      <button onClick={() => setDeleteCreatorTarget(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
                     </div>
                   </td>
                 </tr>
@@ -333,6 +354,17 @@ export default function CreatorsPage() {
       </div>
 
       {viewCreator && <CreatorDetailModal creator={viewCreator} onClose={() => { setViewCreator(null); setActionError('') }} onVerify={handleVerify} actionError={actionError} onStatsSaved={handleStatsSaved} />}
+
+      {deleteCreatorTarget && (
+        <ConfirmDialog
+          title="Delete this creator?"
+          message={`${deleteCreatorTarget.username}'s account will be permanently and irreversibly deleted — this cannot be undone. Their existing BOOMs, posts, and follower relationships stay in the system, but will show this creator as removed.`}
+          confirmLabel="Delete Creator"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteCreatorTarget(null)}
+        />
+      )}
     </div>
   )
 }

@@ -1,10 +1,12 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useSupportAuth } from '../../context/SupportAuthContext'
+import { PermissionsProvider, usePermissions } from '../../context/PermissionsContext'
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', path: '/support/dashboard', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> },
-  { id: 'approvals', label: 'Vendor Approvals', path: '/support/approvals', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
-  { id: 'tickets', label: 'Ticket Management', path: '/support/tickets', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V7a2 2 0 012-2z"/></svg> },
-  { id: 'circles', label: 'Event Circles', path: '/support/circles', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg> },
+  { id: 'dashboard', pageId: 'supportDashboard', label: 'Dashboard', path: '/support/dashboard', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> },
+  { id: 'approvals', pageId: 'supportApprovals', label: 'Vendor Approvals', path: '/support/approvals', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
+  { id: 'tickets', pageId: 'tickets', label: 'Ticket Management', path: '/support/tickets', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V7a2 2 0 012-2z"/></svg> },
+  { id: 'circles', pageId: 'supportCircles', label: 'Event Circles', path: '/support/circles', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg> },
 ]
 
 const TITLES = {
@@ -14,11 +16,21 @@ const TITLES = {
   '/support/circles':   'Event Circle Management',
 }
 
-export default function SupportLayout() {
+function SupportLayoutInner() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const activeId = NAV.find(n => pathname.startsWith(n.path))?.id ?? ''
+  const { auth, logout } = useSupportAuth()
+  const { can } = usePermissions()
+  const visibleNav = NAV.filter(n => can(n.pageId, 'READ'))
+  const activeId = visibleNav.find(n => pathname.startsWith(n.path))?.id ?? ''
   const title = TITLES[pathname] ?? 'Support Portal'
+  const initials = (auth?.username ?? 'SU').slice(0, 2).toUpperCase()
+
+  const handleLogout = () => {
+    if (!window.confirm('Are you sure you want to logout?')) return
+    logout()
+    navigate('/support/login')
+  }
 
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
@@ -35,7 +47,7 @@ export default function SupportLayout() {
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
-          {NAV.map(({ id, label, path, icon: Icon }) => {
+          {visibleNav.map(({ id, label, path, icon: Icon }) => {
             const isActive = activeId === id
             return (
               <button key={id} onClick={() => navigate(path)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-all ${isActive ? 'bg-success text-white' : 'text-white/55 hover:bg-white/8 hover:text-white'}`}>
@@ -45,7 +57,7 @@ export default function SupportLayout() {
           })}
         </nav>
         <div className="px-3 py-4 border-t border-white/8">
-          <button onClick={() => navigate('/support/login')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-danger/15 hover:text-danger transition-all">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-danger/15 hover:text-danger transition-all">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
             Logout
           </button>
@@ -56,15 +68,24 @@ export default function SupportLayout() {
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 h-16 flex items-center gap-4 shrink-0">
           <h1 className="flex-1 text-base font-bold text-slate-800">{title}</h1>
           <button className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
-            <div className="w-7 h-7 rounded-full bg-success flex items-center justify-center text-white text-xs font-bold shrink-0">SU</div>
+            <div className="w-7 h-7 rounded-full bg-success flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
             <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 leading-none">Support Agent</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">support@jashanz.in</p>
+              <p className="text-xs font-bold text-slate-800 leading-none">{auth?.username ?? 'Support User'}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{auth?.role ?? ''}</p>
             </div>
           </button>
         </header>
         <main className="flex-1 overflow-y-auto p-6"><Outlet /></main>
       </div>
     </div>
+  )
+}
+
+export default function SupportLayout() {
+  const { auth } = useSupportAuth()
+  return (
+    <PermissionsProvider authToken={auth?.token}>
+      <SupportLayoutInner />
+    </PermissionsProvider>
   )
 }

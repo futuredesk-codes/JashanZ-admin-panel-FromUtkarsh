@@ -80,7 +80,7 @@ const REPORT_SECTIONS = [
       { type: 'tickets', name: 'Ticket Summary Report', desc: 'Support ticket volume by status and type',
         columns: [['status','Status'],['type','Type'],['count','Count']] },
       { type: 'escalatedTickets', name: 'Escalated Tickets Report', desc: 'Tickets escalated beyond first-level support',
-        columns: [['raisedByModel','Raised By'],['subject','Subject'],['priority','Priority'],['status','Status'],['createdAt','Date']] },
+        columns: [['raisedByModel','Raised By'],['subject','Subject'],['status','Status'],['createdAt','Date']] },
     ],
   },
 ]

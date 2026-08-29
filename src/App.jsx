@@ -17,6 +17,7 @@ import SupportDashboardPage from './pages/support/DashboardPage'
 import SupportTicketsPage   from './pages/support/TicketsPage'
 
 import FinanceLoginPage from './pages/finance/LoginPage'
+import RechargeManagementPage from './pages/finance/RechargeManagementPage'
 import FinanceLayout    from './components/layout/FinanceLayout'
 
 import AdManagerLoginPage     from './pages/admanager/LoginPage'
@@ -102,7 +103,7 @@ function AppRoutes() {
         <Route path="dashboard"   element={<PagePermissionGuard pageId="financeDashboard"><PlaceholderPage title="Finance Dashboard" /></PagePermissionGuard>} />
         <Route path="bookings"    element={<PagePermissionGuard pageId="financeBookings"><PlaceholderPage title="Booking Financials" /></PagePermissionGuard>} />
         <Route path="commission"  element={<PagePermissionGuard pageId="financeCommission"><PlaceholderPage title="Commission Engine" /></PagePermissionGuard>} />
-        <Route path="recharge"    element={<PagePermissionGuard pageId="financeRecharge"><PlaceholderPage title="Recharge Management" /></PagePermissionGuard>} />
+        <Route path="recharge"    element={<PagePermissionGuard pageId="financeRecharge"><RechargeManagementPage /></PagePermissionGuard>} />
         <Route path="settlements" element={<PagePermissionGuard pageId="financeSettlements"><PlaceholderPage title="Settlement Management" /></PagePermissionGuard>} />
         <Route path="refunds"     element={<PagePermissionGuard pageId="financeRefunds"><PlaceholderPage title="Refund Management" /></PagePermissionGuard>} />
         <Route path="reports"     element={<PagePermissionGuard pageId="financeReports"><PlaceholderPage title="Finance Reports" /></PagePermissionGuard>} />

@@ -247,8 +247,8 @@ export default function RechargeManagementPage() {
     }
   }, [typeFilter])
 
-  useEffect(() => { loadPricing() }, [loadPricing])
-  useEffect(() => { loadTransactions() }, [loadTransactions])
+  useEffect(() => { (async () => { await loadPricing() })() }, [loadPricing])
+  useEffect(() => { (async () => { await loadTransactions() })() }, [loadTransactions])
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this transaction? It will be hidden from this list but kept in the database for records.')) return

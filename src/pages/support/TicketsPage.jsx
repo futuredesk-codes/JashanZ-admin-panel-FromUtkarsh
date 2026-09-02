@@ -10,12 +10,6 @@ const STATUS_CLS = {
   RESOLVED: 'bg-success/10 text-success',
   ESCALATED: 'bg-danger/10 text-danger',
 }
-const PRIORITY_CLS = {
-  LOW: 'bg-slate-100 text-slate-500',
-  MEDIUM: 'bg-info/10 text-info',
-  HIGH: 'bg-warning/10 text-warning',
-  URGENT: 'bg-danger/10 text-danger',
-}
 const TYPE_LABELS = {
   BOOKING_ISSUE: 'Booking Issue',
   PAYMENT_ISSUE: 'Payment Issue',
@@ -94,11 +88,17 @@ function TicketDetailModal({ ticketId, onClose }) {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    getTicketDetails(ticketId)
-      .then(data => { if (!cancelled) setTicket(data.ticket) })
-      .catch(err => { if (!cancelled) setError(err instanceof ApiError ? err.message : 'Failed to load ticket.') })
-      .finally(() => { if (!cancelled) setLoading(false) })
+    ;(async () => {
+      setLoading(true)
+      try {
+        const data = await getTicketDetails(ticketId)
+        if (!cancelled) setTicket(data.ticket)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Failed to load ticket.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
     return () => { cancelled = true }
   }, [ticketId])
 
@@ -120,9 +120,6 @@ function TicketDetailModal({ ticketId, onClose }) {
               <DetailRow label="Subject">{ticket.subject}</DetailRow>
               <div className="grid grid-cols-2 gap-4">
                 <DetailRow label="Type">{TYPE_LABELS[ticket.type] ?? ticket.type}</DetailRow>
-                <DetailRow label="Priority">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${PRIORITY_CLS[ticket.priority]}`}>{ticket.priority}</span>
-                </DetailRow>
                 <DetailRow label="Status">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_CLS[ticket.status]}`}>{ticket.status.replace('_', ' ')}</span>
                 </DetailRow>
@@ -189,7 +186,7 @@ export default function TicketsPage() {
     }
   }, [status])
 
-  useEffect(() => { fetchTickets() }, [fetchTickets])
+  useEffect(() => { (async () => { await fetchTickets() })() }, [fetchTickets])
 
   const handleResolve = async id => {
     setBusyId(id)

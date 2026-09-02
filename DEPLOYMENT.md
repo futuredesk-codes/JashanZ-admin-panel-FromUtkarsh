@@ -5,6 +5,7 @@ CI/CD is implemented via GitHub Actions. This app serves four internal portals �
 ## Workflows
 
 ### `.github/workflows/ci.yml`
+
 Runs on every pull request targeting `main`, and on every push to `main`. Never touches AWS, never deploys.
 
 1. Checkout
@@ -13,6 +14,7 @@ Runs on every pull request targeting `main`, and on every push to `main`. Never 
 4. `npm run build`
 
 ### `.github/workflows/deploy-production.yml`
+
 Runs **only** on a push to `main` — never on a pull request, so a PR (including one from a fork) can never reach the AWS credentials this workflow uses.
 
 1. Checkout, install, lint (same checks as CI, run independently)
@@ -24,16 +26,18 @@ Runs **only** on a push to `main` — never on a pull request, so a PR (includin
 ## Required GitHub repository configuration
 
 ### Secrets
+
 None required for this workflow — OIDC replaces the need for stored AWS credentials.
 
 ### Variables (Settings → Secrets and variables → Actions → Variables)
-| Name | Purpose |
-|---|---|
-| `VITE_API_URL` | Production API base URL, e.g. `https://api.jashanz.com/api/v1` — public, not sensitive, safe as a Variable |
-| `AWS_DEPLOY_ROLE_ARN` | IAM role this workflow assumes via OIDC |
-| `AWS_REGION` | Target AWS region |
-| `S3_BUCKET_ADMIN` | Target S3 bucket name |
-| `CLOUDFRONT_DISTRIBUTION_ID_ADMIN` | Target CloudFront distribution to invalidate |
+
+| Name                               | Purpose                                                                                                    |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `VITE_API_URL`                     | Production API base URL, e.g. `https://api.jashanz.com/api/v1` — public, not sensitive, safe as a Variable |
+| `AWS_DEPLOY_ROLE_ARN`              | IAM role this workflow assumes via OIDC                                                                    |
+| `AWS_REGION`                       | Target AWS region                                                                                          |
+| `S3_BUCKET_ADMIN`                  | Target S3 bucket name                                                                                      |
+| `CLOUDFRONT_DISTRIBUTION_ID_ADMIN` | Target CloudFront distribution to invalidate                                                               |
 
 **Never put a secret in a `VITE_*` variable** — everything prefixed `VITE_` is bundled into the public JS output and downloadable by anyone who loads the app, including staff members without SUPER_ADMIN access.
 

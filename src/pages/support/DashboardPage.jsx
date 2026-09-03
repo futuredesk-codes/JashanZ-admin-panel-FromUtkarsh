@@ -9,12 +9,6 @@ const STATUS_CLS = {
   RESOLVED: 'bg-success/10 text-success',
   ESCALATED: 'bg-danger/10 text-danger',
 }
-const PRIORITY_CLS = {
-  LOW: 'bg-slate-100 text-slate-500',
-  MEDIUM: 'bg-info/10 text-info',
-  HIGH: 'bg-warning/10 text-warning',
-  URGENT: 'bg-danger/10 text-danger',
-}
 const TYPE_LABELS = {
   BOOKING_ISSUE: 'Booking Issue',
   PAYMENT_ISSUE: 'Payment Issue',
@@ -47,7 +41,7 @@ export default function SupportDashboardPage() {
   if (error) return <p className="text-sm text-danger font-semibold text-center py-24">{error}</p>
   if (!data) return null
 
-  const { total, byStatus, byPriority, recentTickets } = data
+  const { total, byStatus, recentTickets } = data
 
   return (
     <div className="space-y-5 pb-6">
@@ -71,18 +65,6 @@ export default function SupportDashboardPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 p-5">
-        <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Open Workload by Priority</p>
-        <div className="grid grid-cols-4 gap-3">
-          {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
-            <div key={p} className={`rounded-xl px-3 py-2.5 text-center ${PRIORITY_CLS[p]}`}>
-              <p className="text-lg font-black">{byPriority[p]}</p>
-              <p className="text-[10px] font-bold uppercase tracking-wide">{p}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
           <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Recent Tickets</p>
@@ -99,7 +81,6 @@ export default function SupportDashboardPage() {
                   <p className="text-[11px] text-slate-400">{TYPE_LABELS[t.type] ?? t.type} &middot; {t.raisedBy?.name || t.raisedBy?.username || t.raisedByModel} &middot; {new Date(t.createdAt).toLocaleDateString()}</p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${PRIORITY_CLS[t.priority]}`}>{t.priority}</span>
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${STATUS_CLS[t.status]}`}>{t.status.replace('_', ' ')}</span>
                 </div>
               </div>

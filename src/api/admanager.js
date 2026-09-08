@@ -1,9 +1,13 @@
 import { api } from './client'
 
+// token is only required on the first login after a token is issued (fresh
+// purchase or renewal) — omit it once login has already succeeded once.
 export const admanagerLogin = (username, password, token) =>
-  api.post('/admanager/login', { username, password, token })
+  api.post('/admanager/login', { username, password, ...(token ? { token } : {}) })
 
 export const getAdManagerDashboard = () => api.get('/admanager/dashboard')
+
+export const getMyAdManagerAds = () => api.get('/admanager/ads')
 
 export const listAdManagerAccess = (params) => api.get('/admin/admanager-access', params)
 

@@ -18,6 +18,18 @@ const TYPE_LABELS = {
   ACCOUNT: 'Account',
 }
 
+// Which portal/flow raised the ticket — see supportTicketModel.js's `source`
+// field comment for why this can't just be derived from raisedByModel
+// (an AdManager-raised ticket's account is still a Business, same as one
+// raised through the Business app's own Settings page).
+const SOURCES = ['USER_APP', 'BUSINESS_APP', 'CREATOR_APP', 'ADMANAGER']
+const SOURCE_LABEL = {
+  USER_APP: 'User Dashboard',
+  BUSINESS_APP: 'Business Dashboard',
+  CREATOR_APP: 'Creator Dashboard',
+  ADMANAGER: 'AdManager',
+}
+
 const IconCheck = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
 const IconAlert = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 const IconEye = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -88,11 +100,17 @@ function TicketDetailModal({ ticketId, onClose }) {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    getTicketDetails(ticketId)
-      .then(data => { if (!cancelled) setTicket(data.ticket) })
-      .catch(err => { if (!cancelled) setError(err instanceof ApiError ? err.message : 'Failed to load ticket.') })
-      .finally(() => { if (!cancelled) setLoading(false) })
+    ;(async () => {
+      setLoading(true)
+      try {
+        const data = await getTicketDetails(ticketId)
+        if (!cancelled) setTicket(data.ticket)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Failed to load ticket.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
     return () => { cancelled = true }
   }, [ticketId])
 
@@ -114,6 +132,7 @@ function TicketDetailModal({ ticketId, onClose }) {
               <DetailRow label="Subject">{ticket.subject}</DetailRow>
               <div className="grid grid-cols-2 gap-4">
                 <DetailRow label="Type">{TYPE_LABELS[ticket.type] ?? ticket.type}</DetailRow>
+                <DetailRow label="From">{SOURCE_LABEL[ticket.source] ?? '—'}</DetailRow>
                 <DetailRow label="Status">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_CLS[ticket.status]}`}>{ticket.status.replace('_', ' ')}</span>
                 </DetailRow>
@@ -163,6 +182,7 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
+  const [source, setSource] = useState('')
   const [busyId, setBusyId] = useState(null)
   const [notingTicket, setNotingTicket] = useState(null)
   const [viewingTicketId, setViewingTicketId] = useState(null)
@@ -171,16 +191,19 @@ export default function TicketsPage() {
     setLoading(true)
     setError('')
     try {
-      const data = await listTickets(status ? { status } : undefined)
+      const params = {}
+      if (status) params.status = status
+      if (source) params.source = source
+      const data = await listTickets(Object.keys(params).length ? params : undefined)
       setTickets(data.items)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load tickets.')
     } finally {
       setLoading(false)
     }
-  }, [status])
+  }, [status, source])
 
-  useEffect(() => { fetchTickets() }, [fetchTickets])
+  useEffect(() => { (async () => { await fetchTickets() })() }, [fetchTickets])
 
   const handleResolve = async id => {
     setBusyId(id)
@@ -214,11 +237,21 @@ export default function TicketsPage() {
         <p className="text-sm text-slate-500 mt-0.5">Customer and vendor support tickets</p>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => setStatus('')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${status==='' ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>All</button>
-        {STATUSES.map(s => (
-          <button key={s} onClick={() => setStatus(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${status===s ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{s.replace('_', ' ')}</button>
-        ))}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide w-14 shrink-0">Status</span>
+          <button onClick={() => setStatus('')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${status==='' ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>All</button>
+          {STATUSES.map(s => (
+            <button key={s} onClick={() => setStatus(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${status===s ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{s.replace('_', ' ')}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide w-14 shrink-0">From</span>
+          <button onClick={() => setSource('')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${source==='' ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>All</button>
+          {SOURCES.map(s => (
+            <button key={s} onClick={() => setSource(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${source===s ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{SOURCE_LABEL[s]}</button>
+          ))}
+        </div>
       </div>
 
       {error && <p className="text-sm text-danger font-semibold">{error}</p>}
@@ -228,16 +261,16 @@ export default function TicketsPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50/70 border-b border-slate-100">
               <tr>
-                {['Subject', 'Raised By', 'Status', 'Assigned To', 'Created', 'Actions'].map(h => (
+                {['Subject', 'Raised By', 'From', 'Status', 'Assigned To', 'Created', 'Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">Loading...</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">Loading...</td></tr>
               ) : tickets.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">No tickets found</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">No tickets found</td></tr>
               ) : tickets.map(t => (
                 <tr key={t._id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3">
@@ -245,6 +278,7 @@ export default function TicketsPage() {
                     <p className="text-[11px] text-slate-400">{TYPE_LABELS[t.type] ?? t.type}</p>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">{t.raisedBy?.name || t.raisedBy?.username || t.raisedByModel}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{SOURCE_LABEL[t.source] ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_CLS[t.status]}`}>{t.status.replace('_', ' ')}</span>
                   </td>

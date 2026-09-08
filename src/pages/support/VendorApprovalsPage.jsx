@@ -1,21 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getBusinesses, verifyBusiness, deleteBusiness, getBusinessBookings, getCategories } from '../../api/business'
-import { getPlatformAnalytics } from '../../api/analytics'
+import { getSupportBusinesses, verifyBusinessAsSupport, getSupportBusinessBookings } from '../../api/business'
 import { ApiError } from '../../api/client'
-import ConfirmDialog from '../../components/ConfirmDialog'
 import { useBusinessStatusSocket } from '../../hooks/useBusinessStatusSocket'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
 const STATUS_STYLES = {
-  PENDING:  'bg-warning/10 text-warning',
+  PENDING: 'bg-warning/10 text-warning',
   VERIFIED: 'bg-success/10 text-success',
   REJECTED: 'bg-danger/10 text-danger',
 }
 
 const BOOKING_STATUS_STYLES = {
   COMPLETED: 'bg-success/10 text-success',
-  PENDING:   'bg-warning/10 text-warning',
+  PENDING: 'bg-warning/10 text-warning',
   CONFIRMED: 'bg-info/10 text-info',
   CANCELLED: 'bg-danger/10 text-danger',
   PAYMENT_PENDING: 'bg-slate-100 text-slate-500',
@@ -24,14 +22,13 @@ const BOOKING_STATUS_STYLES = {
 const fmtMoney = n => `₹${(n || 0).toLocaleString('en-IN')}`
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'
 
-/* ── Icons ── */
-const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-const IconXSmall = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+const IconXSmall = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
 
-/* ── Business Detail Modal ── */
+/* ── Business Detail Modal — same shape as Admin's BusinessesPage.jsx, just
+   pointed at Support's own bookings endpoint/verify action ── */
 function BusinessDetailModal({ biz, onClose, onVerify }) {
   const [tab, setTab] = useState('Overview')
   const tabs = ['Overview', 'Documents', 'Bank Details', 'Bookings']
@@ -45,7 +42,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
     (async () => {
       setBookingsLoading(true)
       try {
-        const data = await getBusinessBookings(biz._id, { limit: 20 })
+        const data = await getSupportBusinessBookings(biz._id, { limit: 20 })
         setBookings(data.items || [])
       } catch {
         setBookings([])
@@ -65,7 +62,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -87,7 +84,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
         {/* Tabs */}
         <div className="flex border-b border-slate-100 px-6">
           {tabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} className={`px-4 py-3 text-xs font-bold border-b-2 transition-colors ${tab===t ? 'border-brand text-brand' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>{t}</button>
+            <button key={t} onClick={() => setTab(t)} className={`px-4 py-3 text-xs font-bold border-b-2 transition-colors ${tab === t ? 'border-brand text-brand' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>{t}</button>
           ))}
         </div>
 
@@ -132,7 +129,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
                 <div key={label} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 bg-info/8 rounded-xl flex items-center justify-center text-info">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{label}</p>
@@ -223,22 +220,17 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
   )
 }
 
-/* ── Main Page ── */
-export default function BusinessesPage() {
+export default function VendorApprovalsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [catFilter, setCatFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [categories, setCategories] = useState([])
   const [businesses, setBusinesses] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, hasNextPage: false })
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [stats, setStats] = useState(null)
+  const [actionId, setActionId] = useState(null)
   const [viewBiz, setViewBiz] = useState(null)
-  const [deleteBiz, setDeleteBiz] = useState(null)
-  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -248,139 +240,100 @@ export default function BusinessesPage() {
     return () => clearTimeout(t)
   }, [search])
 
-  useEffect(() => {
-    getCategories().then(setCategories).catch(() => {})
-  }, [])
-
-  const loadStats = useCallback(() => {
-    getPlatformAnalytics().then(setStats).catch(() => {})
-  }, [])
-
-  useEffect(() => { loadStats() }, [loadStats])
-
   const loadBusinesses = useCallback(() => {
     setLoading(true)
     setError('')
-    getBusinesses({ page, limit: 10, search: debouncedSearch, category: catFilter, status: statusFilter })
+    getSupportBusinesses({ page, limit: 10, search: debouncedSearch, status: statusFilter })
       .then(data => {
         setBusinesses(data.items || [])
         setPagination(data.pagination)
       })
-      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load businesses.'))
+      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load vendors.'))
       .finally(() => setLoading(false))
-  }, [page, debouncedSearch, catFilter, statusFilter])
+  }, [page, debouncedSearch, statusFilter])
 
-  useEffect(() => { (async () => { await loadBusinesses() })() }, [loadBusinesses])
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- loadBusinesses' own setState calls are the actual fetch-on-mount-and-filter-change trigger, not a derived-render value
+  useEffect(() => { loadBusinesses() }, [loadBusinesses])
 
-  // Live cross-portal sync — Support's Vendor Approvals page can also
-  // approve/reject these same Business documents; patch the row in place
-  // here too instead of only updating when this page's own action fires.
+  // Live cross-portal sync — if an Admin (or another Support agent in a
+  // second tab) approves/rejects a vendor while this page is open, patch
+  // that row (and the open detail modal, if it's the same vendor) in place
+  // instead of waiting for the next manual refresh.
   useBusinessStatusSocket({
     onStatusChanged: ({ businessId, status }) => {
+      setBusinesses(prev => {
+        const stillMatchesFilter = !statusFilter || statusFilter === status
+        if (!stillMatchesFilter) {
+          return prev.filter(b => b._id !== businessId)
+        }
+        return prev.map(b => b._id === businessId ? { ...b, status } : b)
+      })
+      setViewBiz(v => v && v._id === businessId ? { ...v, status } : v)
+    },
+  })
+
+  const handleVerify = async (businessId, status) => {
+    setActionId(businessId)
+    try {
+      await verifyBusinessAsSupport(businessId, status)
+      // The socket handler above will also patch this in via the broadcast,
+      // but updating locally too means the actor sees it instantly rather
+      // than waiting on their own round-trip socket echo.
       setBusinesses(prev => {
         const stillMatchesFilter = !statusFilter || statusFilter === status
         if (!stillMatchesFilter) return prev.filter(b => b._id !== businessId)
         return prev.map(b => b._id === businessId ? { ...b, status } : b)
       })
       setViewBiz(v => v && v._id === businessId ? { ...v, status } : v)
-      loadStats()
-    },
-  })
-
-  const handleVerify = async (businessId, status) => {
-    await verifyBusiness(businessId, status)
-    loadBusinesses()
-    loadStats()
-    setViewBiz(v => v && v._id === businessId ? { ...v, status } : v)
-  }
-
-  const handleDelete = async () => {
-    if (!deleteBiz) return
-    setDeleting(true)
-    try {
-      await deleteBusiness(deleteBiz._id)
-      setDeleteBiz(null)
-      setViewBiz(v => v && v._id === deleteBiz._id ? null : v)
-      loadBusinesses()
-      loadStats()
     } catch {
-      // no-op — dialog stays open so the admin can retry
+      // no-op — row stays as-is so the agent can retry
     } finally {
-      setDeleting(false)
+      setActionId(null)
     }
   }
 
-  const total = stats?.totalBusinesses ?? 0
-  const pending = stats?.pendingBusinesses ?? 0
-  const approved = stats?.verifiedBusinesses ?? 0
-  const rejected = stats?.rejectedBusinesses ?? 0
-
   return (
     <div className="space-y-5 pb-6">
-      {/* Page title */}
       <div>
-        <h1 className="text-xl font-black text-slate-800">Business Management</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Manage all registered businesses on the platform</p>
+        <h1 className="text-xl font-black text-slate-800">Vendor Approvals</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Review newly registered vendors and approve or reject them</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          {label:'Total Businesses', value:total, color:'info'},
-          {label:'Pending Approval', value:pending, color:'warning'},
-          {label:'Approved', value:approved, color:'success'},
-          {label:'Rejected', value:rejected, color:'danger'},
-        ].map(s => {
-          const clr = {info:'bg-info/8 text-info',warning:'bg-warning/8 text-warning',success:'bg-success/8 text-success',danger:'bg-danger/8 text-danger'}
-          return (
-            <div key={s.label} className="bg-white rounded-2xl p-4 border border-slate-100">
-              <div className={`w-9 h-9 rounded-xl ${clr[s.color]} flex items-center justify-center mb-3 text-lg font-black`}>
-                {s.value > 99 ? '🏢' : s.value}
-              </div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{s.label}</p>
-              <p className="text-2xl font-black text-slate-800">{s.value}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Filter bar */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
-          className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 flex-1 min-w-[180px]"
+          type="text"
           placeholder="Search by username or phone..."
-          value={search} onChange={e => setSearch(e.target.value)}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-48 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
         />
-        <select className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(1) }}>
-          <option value="">All Categories</option>
-          {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-        </select>
-        <select className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
+        <select
+          value={statusFilter}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+          className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+        >
           <option value="">All Statuses</option>
           {STATUSES_LIST.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
         </select>
       </div>
 
-      {error && (
-        <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">{error}</div>
-      )}
+      {error && <p className="text-sm text-danger font-semibold">{error}</p>}
 
-      {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50/70 border-b border-slate-100">
               <tr>
-                {['Business','Category','Area','Status','Bookings','Registered','Actions'].map(h => (
+                {['Business', 'Category', 'Area', 'Status', 'Registered', 'Actions'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">Loading businesses...</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">Loading vendors...</td></tr>
               ) : businesses.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">No businesses match your filters</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">No vendors match your filters</td></tr>
               ) : businesses.map(biz => (
                 <tr key={biz._id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3">
@@ -399,14 +352,26 @@ export default function BusinessesPage() {
                   <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[biz.status]}`}>{STATUS_LABEL[biz.status]}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{biz.bookingsCount}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{fmtDate(biz.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => setViewBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
-                      <button onClick={() => handleVerify(biz._id, 'VERIFIED')} disabled={biz.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
-                      <button onClick={() => handleVerify(biz._id, 'REJECTED')} disabled={biz.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
-                      <button onClick={() => setDeleteBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
+                      <button
+                        onClick={() => handleVerify(biz._id, 'VERIFIED')}
+                        disabled={actionId === biz._id || biz.status === 'VERIFIED'}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Approve"
+                      >
+                        <IconCheck />
+                      </button>
+                      <button
+                        onClick={() => handleVerify(biz._id, 'REJECTED')}
+                        disabled={actionId === biz._id || biz.status === 'REJECTED'}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Reject"
+                      >
+                        <IconXSmall />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -415,7 +380,7 @@ export default function BusinessesPage() {
           </table>
         </div>
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
-          <span>Showing {businesses.length} of {pagination.total} businesses</span>
+          <span>Showing {businesses.length} of {pagination.total} vendors</span>
           <div className="flex items-center gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
             <span className="font-semibold text-slate-500">Page {pagination.page}</span>
@@ -425,17 +390,6 @@ export default function BusinessesPage() {
       </div>
 
       {viewBiz && <BusinessDetailModal biz={viewBiz} onClose={() => setViewBiz(null)} onVerify={handleVerify} />}
-
-      {deleteBiz && (
-        <ConfirmDialog
-          title="Delete this business?"
-          message={`${deleteBiz.profile?.name || deleteBiz.username}'s account will be permanently and irreversibly deleted — this cannot be undone. Their past bookings and reviews stay in the system, but will show this business as removed.`}
-          confirmLabel="Delete Business"
-          loading={deleting}
-          onConfirm={handleDelete}
-          onCancel={() => setDeleteBiz(null)}
-        />
-      )}
     </div>
   )
 }

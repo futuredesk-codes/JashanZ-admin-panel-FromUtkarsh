@@ -15,20 +15,21 @@ export function PermissionsProvider({ authToken, children }) {
   const [state, setState] = useState({ permissions: {}, role: null, loading: true })
 
   useEffect(() => {
-    if (!authToken) {
-      setState({ permissions: {}, role: null, loading: false })
-      return
-    }
     let cancelled = false
-    setState((s) => ({ ...s, loading: true }))
-    getMyPermissions()
-      .then((data) => {
+    ;(async () => {
+      if (!authToken) {
+        setState({ permissions: {}, role: null, loading: false })
+        return
+      }
+      setState((s) => ({ ...s, loading: true }))
+      try {
+        const data = await getMyPermissions()
         if (cancelled) return
         setState({ permissions: data.permissions ?? {}, role: data.role ?? null, loading: false })
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setState({ permissions: {}, role: null, loading: false })
-      })
+      }
+    })()
     return () => { cancelled = true }
   }, [authToken])
 
@@ -44,6 +45,11 @@ export function PermissionsProvider({ authToken, children }) {
   )
 }
 
+// usePermissions is imported alongside PermissionsProvider from this same
+// file across the app; splitting it into its own file would mean updating
+// every one of those import sites for a fast-refresh-only concern, not a
+// correctness one.
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePermissions() {
   const ctx = useContext(PermissionsContext)
   if (!ctx) throw new Error('usePermissions must be used within PermissionsProvider')

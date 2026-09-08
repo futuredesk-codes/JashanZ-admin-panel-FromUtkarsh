@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getMyNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead } from '../api/notification'
 import { useStaffNotificationSocket } from '../hooks/useStaffNotificationSocket'
+
+const PAGE_SIZE = 5
 
 function timeAgo(dateStr) {
   const diffMs = Date.now() - new Date(dateStr).getTime()
@@ -13,18 +15,18 @@ function timeAgo(dateStr) {
   return `${Math.floor(hrs / 24)}d`
 }
 
-// Where each staff notification type sends the reader when clicked. Scoped
-// to Support portal paths for now, since this bell is currently only mounted
-// in SupportLayout — extend with Admin/Finance paths if/when it's mounted
-// there too.
+
 const NOTIFICATION_ROUTES = {
   VENDOR_REGISTERED: '/support/approvals',
   AD_CREATED: '/support/ads',
   NEW_SUPPORT_TICKET: '/support/tickets',
+  RECHARGE_RECEIVED: '/finance/recharge',
 }
 
+const targetPathFor = (n) => n?.data?.link || NOTIFICATION_ROUTES[n?.type] || null
+
 function NotificationRow({ n, onMarkRead, onNavigate }) {
-  const targetPath = NOTIFICATION_ROUTES[n.type]
+  const targetPath = targetPathFor(n)
 
   const handleClick = () => {
     if (!n.isRead) onMarkRead(n._id)
@@ -53,30 +55,59 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const listRef = useRef(null)
 
   useEffect(() => {
     getUnreadCount().then(data => setUnreadCount(data.count || 0)).catch(() => {})
   }, [])
 
-  // Live update — a new staff notification (vendor registered, ad created,
-  // ticket raised) bumps the unread badge immediately instead of only on
-  // the next getUnreadCount poll, and prepends it to the open dropdown.
+
   useStaffNotificationSocket({
     onNewNotification: (notification) => {
       setUnreadCount(c => c + 1)
-      setNotifications(prev => open ? [notification, ...prev] : prev)
+      setNotifications(prev => open ? [notification, ...prev.filter(n => n._id !== notification._id)] : prev)
     },
   })
 
+  const fetchPage = (nextPage) => {
+    const first = nextPage === 1
+    if (first) setLoading(true)
+    else setLoadingMore(true)
+    return getMyNotifications(nextPage, PAGE_SIZE)
+      .then(data => {
+        const items = data.items || []
+        setNotifications(prev => {
+          const base = first ? [] : prev
+          const seen = new Set(base.map(n => n._id))
+          return [...base, ...items.filter(n => !seen.has(n._id))]
+        })
+        setPage(data.pagination?.page || nextPage)
+        setHasMore(Boolean(data.pagination?.hasNextPage))
+      })
+      .catch(() => { if (first) setNotifications([]) })
+      .finally(() => { first ? setLoading(false) : setLoadingMore(false) })
+  }
+
   const handleOpen = () => {
-    setOpen(v => !v)
-    if (!open) {
-      setLoading(true)
-      getMyNotifications()
-        .then(data => setNotifications(data.items || []))
-        .catch(() => setNotifications([]))
-        .finally(() => setLoading(false))
+    const next = !open
+    setOpen(next)
+    if (next) {
+      setPage(1)
+      setHasMore(false)
+      fetchPage(1)
+    }
+  }
+
+  // Infinite scroll — load the next 5 as the list nears the bottom.
+  const handleScroll = () => {
+    const el = listRef.current
+    if (!el || loading || loadingMore || !hasMore) return
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
+      fetchPage(page + 1)
     }
   }
 
@@ -102,12 +133,13 @@ export default function NotificationBell() {
       <button
         onClick={handleOpen}
         className="relative w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-slate-500"
+        aria-label="Notifications"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center bg-brand text-white text-[10px] font-bold rounded-full">
+          <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 flex items-center justify-center bg-brand text-white text-[10px] font-bold rounded-full">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -116,7 +148,7 @@ export default function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-11 w-80 max-h-96 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-2xl z-50">
+          <div className="absolute right-0 top-11 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
               <p className="text-sm font-black text-slate-800">Notifications</p>
               {notifications.some(n => !n.isRead) && (
@@ -125,15 +157,23 @@ export default function NotificationBell() {
                 </button>
               )}
             </div>
-            {loading ? (
-              <p className="text-sm text-slate-400 text-center py-6">Loading…</p>
-            ) : notifications.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">No notifications yet.</p>
-            ) : (
-              notifications.map(n => (
-                <NotificationRow key={n._id} n={n} onMarkRead={handleMarkRead} onNavigate={handleNavigate} />
-              ))
-            )}
+            <div ref={listRef} onScroll={handleScroll} className="max-h-96 overflow-y-auto">
+              {loading ? (
+                <p className="text-sm text-slate-400 text-center py-6">Loading…</p>
+              ) : notifications.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">No notifications yet.</p>
+              ) : (
+                <>
+                  {notifications.map(n => (
+                    <NotificationRow key={n._id} n={n} onMarkRead={handleMarkRead} onNavigate={handleNavigate} />
+                  ))}
+                  {loadingMore && <p className="text-xs text-slate-400 text-center py-3">Loading more…</p>}
+                  {!hasMore && notifications.length > PAGE_SIZE && (
+                    <p className="text-[11px] text-slate-300 text-center py-3">That's everything.</p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </>
       )}

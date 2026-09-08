@@ -1,25 +1,28 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useFinanceAuth } from '../../context/FinanceAuthContext'
 import { PermissionsProvider, usePermissions } from '../../context/PermissionsContext'
+import { StaffProfileProvider, useStaffProfile } from '../../context/StaffProfileContext'
+import NotificationBell from '../NotificationBell'
 
 const NAV = [
   { id: 'dashboard',   pageId: 'financeDashboard',   label: 'Dashboard',          path: '/finance/dashboard',   icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> },
-  { id: 'bookings',    pageId: 'financeBookings',    label: 'Booking Financials',  path: '/finance/bookings',    icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> },
-  { id: 'commission',  pageId: 'financeCommission',  label: 'Commission Engine',   path: '/finance/commission',  icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
+  { id: 'bookings',    pageId: 'financeBookings',    label: 'Vendor Payments',     path: '/finance/bookings',    icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> },
+  { id: 'commission',  pageId: 'financeCommission',  label: 'Commission Manager',  path: '/finance/commission',  icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
   { id: 'recharge',    pageId: 'financeRecharge',    label: 'Recharge Management', path: '/finance/recharge',    icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/></svg> },
-  { id: 'settlements', pageId: 'financeSettlements', label: 'Settlements',         path: '/finance/settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
+  { id: 'settlements', pageId: 'financeSettlements', label: 'Payouts & Settlements', path: '/finance/settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
   { id: 'refunds',     pageId: 'financeRefunds',     label: 'Refund Management',   path: '/finance/refunds',     icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> },
   { id: 'reports',     pageId: 'financeReports',     label: 'Finance Reports',     path: '/finance/reports',     icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
 ]
 
 const TITLES = {
   '/finance/dashboard':   'Finance Dashboard',
-  '/finance/bookings':    'Booking Financials',
-  '/finance/commission':  'Commission Engine',
+  '/finance/bookings':    'Vendor Payment Records',
+  '/finance/commission':  'Bookings Revenue & Commission Manager',
   '/finance/recharge':    'Recharge Management',
-  '/finance/settlements': 'Settlement Management',
+  '/finance/settlements': 'Payouts & Settlement Tracking',
   '/finance/refunds':     'Refund Management',
   '/finance/reports':     'Finance Reports',
+  '/finance/profile':     'My Profile',
 }
 
 function FinanceLayoutInner() {
@@ -27,10 +30,12 @@ function FinanceLayoutInner() {
   const { pathname } = useLocation()
   const { auth, logout } = useFinanceAuth()
   const { can } = usePermissions()
+  const { profile } = useStaffProfile()
   const visibleNav = NAV.filter(n => can(n.pageId, 'READ'))
   const activeId = visibleNav.find(n => pathname.startsWith(n.path))?.id ?? ''
   const title = TITLES[pathname] ?? 'Finance Portal'
-  const initials = (auth?.username ?? 'FU').slice(0, 2).toUpperCase()
+  const displayName = profile?.name || auth?.username || 'Finance User'
+  const initials = displayName.slice(0, 2).toUpperCase()
 
   const handleLogout = () => {
     if (!window.confirm('Are you sure you want to logout?')) return
@@ -73,10 +78,13 @@ function FinanceLayoutInner() {
       <div className="flex-1 flex flex-col ml-60 min-w-0 overflow-hidden">
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 h-16 flex items-center gap-4 shrink-0">
           <h1 className="flex-1 text-base font-bold text-slate-800">{title}</h1>
-          <button className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
-            <div className="w-7 h-7 rounded-full bg-warning flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
+          <NotificationBell />
+          <button onClick={() => navigate('/finance/profile')} className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors" title="My profile">
+            {profile?.profileImg
+              ? <img src={profile.profileImg} alt={displayName} className="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-100" />
+              : <div className="w-7 h-7 rounded-full bg-warning flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>}
             <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 leading-none">{auth?.username ?? 'Finance User'}</p>
+              <p className="text-xs font-bold text-slate-800 leading-none">{displayName}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">{auth?.role ?? ''}</p>
             </div>
           </button>
@@ -91,7 +99,9 @@ export default function FinanceLayout() {
   const { auth } = useFinanceAuth()
   return (
     <PermissionsProvider authToken={auth?.token}>
-      <FinanceLayoutInner />
+      <StaffProfileProvider authToken={auth?.token}>
+        <FinanceLayoutInner />
+      </StaffProfileProvider>
     </PermissionsProvider>
   )
 }

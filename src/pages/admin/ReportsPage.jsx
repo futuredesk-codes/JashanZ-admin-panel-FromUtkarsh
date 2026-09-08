@@ -85,11 +85,7 @@ const REPORT_SECTIONS = [
   },
 ]
 
-const ALL_REPORTS = REPORT_SECTIONS.flatMap((s) => s.reports)
 
-// Aggregate/count reports have no per-row date column, so a date range can't
-// meaningfully scope them the way it does a row-level list — surfaced in the
-// preview so an operator isn't misled into thinking "August" filtered these.
 const DATE_SCOPED_TYPES = new Set([
   'customers', 'customerActivity', 'suspendedAccounts', 'vendor', 'approvedVendors',
   'bookings', 'commissions', 'recharges', 'settlements', 'refunds', 'escalatedTickets',
@@ -371,10 +367,13 @@ export default function ReportsPage() {
   const [preset, setPreset] = useState('thisMonth')
   const [fromDate, setFromDate] = useState(initial.from)
   const [toDate, setToDate] = useState(initial.to)
+  const [sectionFilter, setSectionFilter] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [openReport, setOpenReport] = useState(null)
 
+  const visibleSections = sectionFilter ? REPORT_SECTIONS.filter((s) => s.key === sectionFilter) : REPORT_SECTIONS
+  const scopedReports = visibleSections.flatMap((s) => s.reports)
   const invalidRange = Boolean(fromDate && toDate && fromDate > toDate)
   const label = rangeLabelFor(fromDate, toDate)
   const dateRange = useMemo(() => ({ from: fromDate, to: toDate }), [fromDate, toDate])
@@ -389,12 +388,15 @@ export default function ReportsPage() {
 
   const handleGenerateAll = async () => {
     if (invalidRange) { setError('"From" date is after "To" date — fix the range first.'); return }
-    if (!fromDate && !toDate && !window.confirm('No date range is set. This exports every record across all reports. Continue?')) return
+    const scopeLabel = sectionFilter ? `the "${visibleSections[0].title}" section` : 'all sections'
+    const rangeText = !fromDate && !toDate ? 'with NO date range (every record)' : `for ${label}`
+    const n = scopedReports.length
+    if (!window.confirm(`Download ${n} CSV report${n === 1 ? '' : 's'} — ${scopeLabel}, ${rangeText}?`)) return
 
     setGenerating(true)
     setError('')
     try {
-      for (const report of ALL_REPORTS) {
+      for (const report of scopedReports) {
         const res = await exportFinanceReport({ type: report.type, from: fromDate, to: toDate })
         const rows = res?.data || []
         downloadBlob(buildCsv(report.columns, rows), 'text/csv;charset=utf-8;', `${report.type}_${periodSlug(fromDate, toDate)}.csv`)
@@ -479,8 +481,19 @@ export default function ReportsPage() {
           </div>
         )}
 
-        <div className="flex items-center gap-2 pt-1">
-          <span className="text-xs text-slate-400 font-semibold">Reports reflect:</span>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <span className="text-xs font-semibold text-slate-500">Section</span>
+          <select
+            value={sectionFilter}
+            onChange={(e) => setSectionFilter(e.target.value)}
+            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+          >
+            <option value="">All sections</option>
+            {REPORT_SECTIONS.map((s) => (
+              <option key={s.key} value={s.key}>{s.title} ({s.reports.length})</option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-400 font-semibold ml-auto">Reports reflect:</span>
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${invalidRange ? 'bg-danger/10 text-danger' : 'bg-brand/8 text-brand'}`}>
             {invalidRange ? '"From" is after "To"' : label}
           </span>
@@ -488,7 +501,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Report sections */}
-      {REPORT_SECTIONS.map((section) => (
+      {visibleSections.map((section) => (
         <div key={section.key}>
           <div className="flex items-center gap-2.5 mb-4">
             <div className={`w-8 h-8 rounded-xl ${section.colorClass} flex items-center justify-center`}>{section.icon}</div>

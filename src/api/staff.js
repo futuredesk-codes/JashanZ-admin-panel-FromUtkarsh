@@ -13,3 +13,6 @@ export const deleteStaff = (id) => api.delete(`/admin/staff/${id}`)
 export const getStaffPermissions = (id) => api.get(`/admin/staff/${id}/permissions`)
 
 export const updateStaffPermissions = (id, permissions) => api.patch(`/admin/staff/${id}/permissions`, { permissions })
+
+export const getMyStaffProfile = () => api.get('/admin/me')
+export const updateMyStaffProfile = (payload) => api.patch('/admin/me', payload)

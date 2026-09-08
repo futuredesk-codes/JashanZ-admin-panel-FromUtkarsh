@@ -4,6 +4,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 import { getPlatformAnalytics } from '../../api/analytics'
+import { getTutorialVideo, setTutorialVideo } from '../../api/config'
+import { youtubeId, youtubeThumb, youtubeEmbed } from '../../utils/youtube'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 
 const CATEGORY_COLORS = ['#3BBDF7','#28aae2','#10b981','#f59e0b','#8b5cf6','#6b7280']
@@ -77,6 +79,119 @@ const I = {
   tick: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.81 19.79 19.79 0 01.63 2.18 2 2 0 012.62.01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.6a16 16 0 006.29 6.29l.96-.96a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>,
 }
 
+/* ── Home-page tutorial video (YouTube URL shown on the website landing page) ── */
+function TutorialVideoCard() {
+  const [url, setUrl] = useState('')
+  const [saved, setSaved] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null) // { ok: boolean, text: string }
+  const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    getTutorialVideo()
+      .then(d => { setUrl(d.url || ''); setSaved(d.url || '') })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const trimmed = url.trim()
+  const id = youtubeId(trimmed)
+  const dirty = trimmed !== saved
+  const invalid = trimmed !== '' && !id
+
+  const save = async () => {
+    if (invalid) { setMsg({ ok: false, text: 'Enter a valid YouTube video URL.' }); return }
+    setBusy(true)
+    setMsg(null)
+    try {
+      const d = await setTutorialVideo(trimmed)
+      setSaved(d.url || '')
+      setUrl(d.url || '')
+      setPlaying(false)
+      setMsg({ ok: true, text: d.url ? 'Saved — the website home page will show this video.' : 'Cleared — the video is now hidden on the website.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e?.message || 'Could not save. Try again.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl p-5 border border-slate-100">
+      <SectionTitle title="Home Page Tutorial Video" sub="Paste a YouTube link — it shows as a clickable preview on the Jashanz website home page. Leave empty to hide it." />
+
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 space-y-3">
+          <input
+            type="url"
+            value={url}
+            onChange={e => { setUrl(e.target.value); setMsg(null) }}
+            placeholder="https://www.youtube.com/watch?v=..."
+            disabled={loading || busy}
+            className={`w-full text-sm rounded-xl border px-3 py-2.5 outline-none transition-colors ${
+              invalid ? 'border-danger/50 focus:border-danger' : 'border-slate-200 focus:border-brand'
+            } disabled:bg-slate-50`}
+          />
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={save}
+              disabled={loading || busy || !dirty || invalid}
+              className="bg-brand text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-brand-dark transition-colors disabled:opacity-40"
+            >
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            {saved && (
+              <button
+                onClick={() => { setUrl(''); setMsg(null) }}
+                disabled={loading || busy}
+                className="text-xs font-bold px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+              >
+                Clear
+              </button>
+            )}
+            {dirty && !invalid && <span className="text-[11px] text-slate-400">Unsaved changes</span>}
+          </div>
+
+          {invalid && <p className="text-[11px] text-danger font-semibold">That doesn’t look like a YouTube video link.</p>}
+          {msg && <p className={`text-[11px] font-semibold ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
+        </div>
+
+        {/* Preview — same behaviour the website will use: thumbnail, click to play */}
+        <div className="w-full lg:w-80 shrink-0">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Preview</p>
+          <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+            {id ? (
+              playing ? (
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src={youtubeEmbed(id, { autoplay: true })}
+                  title="Tutorial video preview"
+                  allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <button onClick={() => setPlaying(true)} className="group absolute inset-0 w-full h-full">
+                  <img src={youtubeThumb(id)} alt="Video thumbnail" className="w-full h-full object-cover" />
+                  <span className="absolute inset-0 bg-black/25 group-hover:bg-black/35 transition-colors" />
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/95 flex items-center justify-center shadow-lg">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#ef4444"><path d="M8 5v14l11-7z" /></svg>
+                  </span>
+                </button>
+              )
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-300">
+                {loading ? 'Loading…' : 'No video set'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const { auth } = useAdminAuth()
   const [stats, setStats] = useState(null)
@@ -121,6 +236,9 @@ export default function DashboardPage() {
           </a>
         </div>
       </div>
+
+      {/* Home-page tutorial video control */}
+      <TutorialVideoCard />
 
       {/* KPI: Users */}
       <div>

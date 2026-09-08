@@ -24,6 +24,8 @@ import SupportLoginPage from "./pages/support/LoginPage";
 import SupportLayout from "./components/layout/SupportLayout";
 import SupportDashboardPage from "./pages/support/DashboardPage";
 import SupportTicketsPage from "./pages/support/TicketsPage";
+import SupportVendorApprovalsPage from "./pages/support/VendorApprovalsPage";
+import SupportAdReviewPage from "./pages/support/AdReviewPage";
 
 import FinanceLoginPage from "./pages/finance/LoginPage";
 import RechargeManagementPage from "./pages/finance/RechargeManagementPage";
@@ -53,6 +55,11 @@ const FINANCE_ROLES = ["FINANCE_ADMIN", "FINANCE_STAFF", "SUPER_ADMIN"];
 const SUPPORT_ROLES = ["SUPPORT_LEAD", "SUPPORT_AGENT", "SUPER_ADMIN", "ADMIN"];
 const ADMANAGER_ROLES = ["ADMANAGER"];
 
+// All 4 portal subdomains (admin/support/finance/admanager) currently share
+// the same EC2 Nginx dist/ build (see the repo's DEPLOYMENT.md) — the app
+// itself has to decide which portal's login page to land on based on which
+// hostname the browser actually loaded, since there's no separate build per
+// subdomain to encode that at the server/Nginx level.
 function RootRedirect() {
   const hostname = window.location.hostname;
 
@@ -69,29 +76,6 @@ function RootRedirect() {
   }
 
   return <Navigate to="/admin/login" replace />;
-}
-
-// All 4 portal subdomains (admin/support/finance/admanager) currently share
-// the same EC2 Nginx dist/ build (see the repo's DEPLOYMENT.md) — the app
-// itself has to decide which portal's login page to land on based on which
-// hostname the browser actually loaded, since there's no separate build per
-// subdomain to encode that at the server/Nginx level.
-function RootRedirect() {
-  const hostname = window.location.hostname
-
-  if (hostname === 'support.jashanz.com') {
-    return <Navigate to="/support/login" replace />
-  }
-
-  if (hostname === 'finance.jashanz.com') {
-    return <Navigate to="/finance/login" replace />
-  }
-
-  if (hostname === 'admanager.jashanz.com') {
-    return <Navigate to="/admanager/login" replace />
-  }
-
-  return <Navigate to="/admin/login" replace />
 }
 
 function AppRoutes() {
@@ -278,7 +262,16 @@ function AppRoutes() {
           path="approvals"
           element={
             <PagePermissionGuard pageId="supportApprovals">
-              <PlaceholderPage title="Vendor Approvals" />
+              <SupportVendorApprovalsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="ads"
+          element={
+            <PagePermissionGuard pageId="supportAds">
+              <SupportAdReviewPage />
             </PagePermissionGuard>
           }
         />

@@ -7,6 +7,8 @@ export const admanagerLogin = (username, password, token) =>
 
 export const getAdManagerDashboard = () => api.get('/admanager/dashboard')
 
+export const getMyAdManagerAds = () => api.get('/admanager/ads')
+
 export const listAdManagerAccess = (params) => api.get('/admin/admanager-access', params)
 
 export const approveAdManagerAccess = (accessId) =>

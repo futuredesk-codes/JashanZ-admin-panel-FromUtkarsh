@@ -45,6 +45,11 @@ export function PermissionsProvider({ authToken, children }) {
   )
 }
 
+// usePermissions is imported alongside PermissionsProvider from this same
+// file across the app; splitting it into its own file would mean updating
+// every one of those import sites for a fast-refresh-only concern, not a
+// correctness one.
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePermissions() {
   const ctx = useContext(PermissionsContext)
   if (!ctx) throw new Error('usePermissions must be used within PermissionsProvider')

@@ -71,7 +71,7 @@ function CustomerDetailModal({ cust, onClose, onToggleStatus }) {
               ? <img src={cust.profileImg} alt={cust.name} className="w-10 h-10 rounded-xl object-cover" />
               : <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black">{(cust.name || cust.username || '?')[0]?.toUpperCase()}</div>}
             <div>
-              <h3 className="font-black text-slate-800 text-base">{cust.name || cust.username || 'Unnamed user'}</h3>
+              <h3 className="font-black text-slate-800 text-base">{cust.name || cust.username || cust.phoneNumber || 'Unnamed user'}</h3>
               <p className="text-xs text-slate-400">@{cust.username || '—'}</p>
             </div>
           </div>
@@ -291,7 +291,7 @@ export default function CustomersPage() {
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-black shrink-0">{(cust.name || cust.username || '?')[0]?.toUpperCase()}</div>
                       <div>
-                        <p className="font-bold text-xs text-slate-800 leading-tight">{cust.name || cust.username || 'Unnamed'}</p>
+                        <p className="font-bold text-xs text-slate-800 leading-tight">{cust.name || cust.username || cust.phoneNumber || 'Unnamed'}</p>
                         <p className="text-[11px] text-slate-400">@{cust.username || '—'}</p>
                       </div>
                     </div>

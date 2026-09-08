@@ -1,8 +1,65 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { listStaff, createStaff, updateStaff, toggleStaff, deleteStaff, getStaffPermissions, updateStaffPermissions } from '../api/staff'
-import { ApiError } from '../api/client'
+import { getPresignedUrl } from '../api/upload'
+import { ApiError, uploadToPresignedUrl } from '../api/client'
 
 const IconPlus = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+const IconCamera = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+
+/** Staff avatar — photo when set, else the name/username initial. */
+function StaffAvatar({ src, name, size = 'w-8 h-8', text = 'text-xs' }) {
+  const [broken, setBroken] = useState(false)
+  if (src && !broken) {
+    return <img src={src} alt={name} onError={() => setBroken(true)} className={`${size} rounded-lg object-cover shrink-0 bg-slate-100`} />
+  }
+  return (
+    <span className={`${size} ${text} rounded-lg bg-brand/8 text-brand flex items-center justify-center font-black shrink-0`}>
+      {(name || '?')[0]?.toUpperCase()}
+    </span>
+  )
+}
+
+/** Device photo upload for the add/edit modals — presigned S3 PUT, returns the fileUrl. */
+function PhotoField({ value, name, onChange, onError }) {
+  const inputRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) { onError('Please choose an image file.'); return }
+    onError('')
+    setUploading(true)
+    try {
+      const { presignedUrl, fileUrl } = await getPresignedUrl(file.name, file.type, 'staff')
+      await uploadToPresignedUrl(presignedUrl, file)
+      onChange(fileUrl)
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : 'Could not upload photo.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div>
+      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Profile Photo <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+      <div className="flex items-center gap-3">
+        <StaffAvatar src={value} name={name} size="w-14 h-14" text="text-lg" />
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="inline-flex items-center gap-1.5 bg-brand/8 text-brand rounded-lg px-3 py-2 text-xs font-bold hover:bg-brand/15 disabled:opacity-60">
+            <IconCamera />{uploading ? 'Uploading…' : value ? 'Change' : 'Upload photo'}
+          </button>
+          {value && !uploading && (
+            <button type="button" onClick={() => onChange('')} className="text-xs font-semibold text-slate-400 hover:text-danger">Remove</button>
+          )}
+        </div>
+        <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      </div>
+    </div>
+  )
+}
 const IconEdit = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 const IconSliders = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
 const IconBan = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -23,9 +80,9 @@ const LEVEL_ACTIVE_CLS = {
 }
 const PORTAL_LABELS = { ADMIN: 'Admin Portal', SUPPORT: 'Support Portal', FINANCE: 'Finance Portal' }
 
-/** Add User Modal — name + username + password only. Role is fixed per portal (not chosen); fine-grained access is set afterwards via "Manage". */
-function AddUserModal({ entityLabel, createRole, onClose, onCreated }) {
-  const [form, setForm] = useState({ name: '', username: '', password: '' })
+/** Add User Modal — name + username + password + role + optional photo. Fine-grained page access is still set afterwards via "Manage". */
+function AddUserModal({ entityLabel, createRole, roles = [], onClose, onCreated }) {
+  const [form, setForm] = useState({ name: '', username: '', password: '', role: createRole, profileImg: '' })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -36,7 +93,13 @@ function AddUserModal({ entityLabel, createRole, onClose, onCreated }) {
     setError('')
     setSaving(true)
     try {
-      await createStaff({ ...form, role: createRole })
+      await createStaff({
+        name: form.name,
+        username: form.username,
+        password: form.password,
+        role: form.role,
+        profileImg: form.profileImg || undefined,
+      })
       onCreated()
       onClose()
     } catch (err) {
@@ -48,13 +111,15 @@ function AddUserModal({ entityLabel, createRole, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h3 className="font-black text-slate-800">Add {entityLabel}</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconX /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <PhotoField value={form.profileImg} name={form.name || form.username} onChange={v => set('profileImg', v)} onError={setError} />
+
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Name</label>
             <input required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" placeholder="e.g. Priya Sharma" value={form.name} onChange={e => set('name', e.target.value)} />
@@ -62,6 +127,19 @@ function AddUserModal({ entityLabel, createRole, onClose, onCreated }) {
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Username</label>
             <input required minLength={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" placeholder="e.g. priya_support" value={form.username} onChange={e => set('username', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Role</label>
+            <select
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+              value={form.role}
+              onChange={e => set('role', e.target.value)}
+            >
+              {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            {roles.find(r => r.value === form.role)?.description && (
+              <p className="text-[11px] text-slate-400 mt-1">{roles.find(r => r.value === form.role).description}</p>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Password</label>
@@ -82,9 +160,9 @@ function AddUserModal({ entityLabel, createRole, onClose, onCreated }) {
   )
 }
 
-/** Edit User Modal — name + username always, password only if the admin wants to change it. */
-function EditUserModal({ user, entityLabel, onClose, onUpdated }) {
-  const [form, setForm] = useState({ name: user.name ?? '', username: user.username, password: '' })
+/** Edit User Modal — name + username + role + photo always, password only if the admin wants to change it. */
+function EditUserModal({ user, entityLabel, roles = [], onClose, onUpdated }) {
+  const [form, setForm] = useState({ name: user.name ?? '', username: user.username, password: '', profileImg: user.profileImg ?? '', role: user.role })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -95,7 +173,7 @@ function EditUserModal({ user, entityLabel, onClose, onUpdated }) {
     setError('')
     setSaving(true)
     try {
-      const payload = { name: form.name, username: form.username }
+      const payload = { name: form.name, username: form.username, profileImg: form.profileImg, role: form.role }
       if (form.password) payload.password = form.password
       await updateStaff(user._id, payload)
       onUpdated()
@@ -109,13 +187,15 @@ function EditUserModal({ user, entityLabel, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h3 className="font-black text-slate-800">Edit {entityLabel}</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconX /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <PhotoField value={form.profileImg} name={form.name || form.username} onChange={v => set('profileImg', v)} onError={setError} />
+
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Name</label>
             <input required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" value={form.name} onChange={e => set('name', e.target.value)} />
@@ -123,6 +203,20 @@ function EditUserModal({ user, entityLabel, onClose, onUpdated }) {
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Username</label>
             <input required minLength={3} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" value={form.username} onChange={e => set('username', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Role</label>
+            <select
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+              value={form.role}
+              onChange={e => set('role', e.target.value)}
+            >
+              {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              {!roles.some(r => r.value === form.role) && <option value={form.role}>{form.role}</option>}
+            </select>
+            {roles.find(r => r.value === form.role)?.description && (
+              <p className="text-[11px] text-slate-400 mt-1">{roles.find(r => r.value === form.role).description}</p>
+            )}
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">New Password</label>
@@ -363,7 +457,12 @@ export default function StaffUsersPage({ title, subtitle, roles, createRole, ent
                 const meta = roleMeta[u.role]
                 return (
                   <tr key={u._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-bold text-xs text-slate-800">{u.name || '—'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <StaffAvatar src={u.profileImg} name={u.name || u.username} />
+                        <span className="font-bold text-xs text-slate-800">{u.name || '—'}</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-600">{u.username}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${meta?.badgeClass ?? 'bg-slate-100 text-slate-500'}`}>{meta?.label ?? u.role}</span>
@@ -391,8 +490,8 @@ export default function StaffUsersPage({ title, subtitle, roles, createRole, ent
         </div>
       </div>
 
-      {showAddModal && <AddUserModal entityLabel={entityLabel} createRole={createRole} onClose={() => setShowAddModal(false)} onCreated={fetchUsers} />}
-      {editingUser && <EditUserModal user={editingUser} entityLabel={entityLabel} onClose={() => setEditingUser(null)} onUpdated={fetchUsers} />}
+      {showAddModal && <AddUserModal entityLabel={entityLabel} createRole={createRole} roles={roles} onClose={() => setShowAddModal(false)} onCreated={fetchUsers} />}
+      {editingUser && <EditUserModal user={editingUser} entityLabel={entityLabel} roles={roles} onClose={() => setEditingUser(null)} onUpdated={fetchUsers} />}
       {managingUser && <ManagePermissionsModal user={managingUser} onClose={() => setManagingUser(null)} onSaved={fetchUsers} />}
     </div>
   )

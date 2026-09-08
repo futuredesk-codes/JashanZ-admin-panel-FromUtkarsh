@@ -28,6 +28,7 @@ import SupportVendorApprovalsPage from "./pages/support/VendorApprovalsPage";
 import SupportAdReviewPage from "./pages/support/AdReviewPage";
 
 import FinanceLoginPage from "./pages/finance/LoginPage";
+import FinanceDashboardPage from "./pages/finance/DashboardPage";
 import RechargeManagementPage from "./pages/finance/RechargeManagementPage";
 import FinanceLayout from "./components/layout/FinanceLayout";
 
@@ -316,7 +317,7 @@ function AppRoutes() {
           path="dashboard"
           element={
             <PagePermissionGuard pageId="financeDashboard">
-              <PlaceholderPage title="Finance Dashboard" />
+              <FinanceDashboardPage />
             </PagePermissionGuard>
           }
         />

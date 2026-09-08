@@ -6,6 +6,8 @@ export const financeLogin = (username, password) =>
 
 /* ── View (read-only, works for FINANCE_ADMIN/FINANCE_STAFF/SUPER_ADMIN) ── */
 export const getFinanceDashboard = () => api.get('/finance/dashboard')
+/** Rich, filterable finance-portal dashboard. params: { from, to, city, category, granularity } */
+export const getFinanceDashboardOverview = (params) => api.get('/finance/dashboard-overview', params)
 export const getVendorPayments = (params) => api.get('/finance/vendor-payments', params)
 export const getWalletTransactions = (params) => api.get('/finance/transactions', params)
 export const getLeadRecharges = (params) => api.get('/finance/lead-recharges', params)

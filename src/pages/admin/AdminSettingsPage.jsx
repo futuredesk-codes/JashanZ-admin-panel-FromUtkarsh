@@ -2,29 +2,16 @@ import { useState, useEffect } from 'react'
 import { ApiError } from '../../api/client'
 import { getAllConfig, setConfig, PLATFORM_INFO_KEYS } from '../../api/config'
 
-/* ── Mock data ── */
-const CATEGORIES_WITH_RATES = [
-  { name: 'DJ',              rate: '10%', bookingType: 'Slot Booking' },
-  { name: 'Decorator',       rate: '12%', bookingType: 'Per Day Booking' },
-  { name: 'Makeup Artist',   rate: '8%',  bookingType: 'Appointment Booking' },
-  { name: 'Event Organizer', rate: '15%', bookingType: 'Per Day Booking' },
-  { name: 'Photographer',    rate: '10%', bookingType: 'Home Service Booking' },
-  { name: 'Influencer',      rate: '18%', bookingType: 'Slot Booking' },
-  { name: 'Banquet Hall',    rate: '8%',  bookingType: 'Slot Booking' },
-  { name: 'Catering',        rate: '10%', bookingType: 'Per Day Booking' },
-]
-
-const BOOKING_TYPES = ['Slot Booking', 'Per Day Booking', 'Ticket Booking', 'Appointment Booking', 'Home Service Booking']
-
-const TABS = ['General', 'Commission', 'Notifications']
+// Commission rates / booking-type assignment live on the Finance dashboard,
+// not here — this page is platform info + admin notification preferences only.
+const TABS = ['General', 'Notifications']
 
 /* ── Icons ── */
 const IconSettings = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-const IconPercent = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
 const IconBell = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
 const IconSave = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
 
-const TAB_ICONS = { General: <IconSettings />, Commission: <IconPercent />, Notifications: <IconBell /> }
+const TAB_ICONS = { General: <IconSettings />, Notifications: <IconBell /> }
 
 /* ── Shared field label ── */
 const Label = ({ children }) => (
@@ -132,107 +119,6 @@ function GeneralTab() {
   )
 }
 
-/* ── Commission Tab ── */
-function CommissionTab() {
-  const [globalRate, setGlobalRate] = useState('10')
-  const [catRates, setCatRates] = useState(CATEGORIES_WITH_RATES.map(c => ({ ...c, customRate: c.rate })))
-  const [catBookingTypes, setCatBookingTypes] = useState(CATEGORIES_WITH_RATES.map(c => ({ name: c.name, type: c.bookingType })))
-  const [savedGlobal, setSavedGlobal] = useState(false)
-
-  const updateCustomRate = (name, val) => setCatRates(rs => rs.map(r => r.name === name ? { ...r, customRate: val } : r))
-  const updateBookingType = (name, val) => setCatBookingTypes(ts => ts.map(t => t.name === name ? { ...t, type: val } : t))
-
-  return (
-    <div className="space-y-4">
-      {/* Global commission */}
-      <Card title="Global Commission Rate" desc="Default rate applied to all categories unless overridden">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <input
-              type="number" min="0" max="100" step="0.5"
-              className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 text-2xl font-black text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 w-28"
-              value={globalRate} onChange={e => setGlobalRate(e.target.value)}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xl font-black text-slate-400">%</span>
-          </div>
-          <button
-            onClick={() => { setSavedGlobal(true); setTimeout(() => setSavedGlobal(false), 2000) }}
-            className="bg-brand text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-brand/90"
-          >
-            {savedGlobal ? 'Saved!' : 'Save'}
-          </button>
-          <p className="text-xs text-slate-400">Current: <strong className="text-slate-700">{globalRate}%</strong></p>
-        </div>
-      </Card>
-
-      {/* Category-wise commission — table scrolls on mobile */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-100">
-          <h3 className="font-black text-slate-800 text-sm">Category-wise Commission</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Set custom rates per category. Leave blank to use global rate.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-120">
-            <thead className="bg-slate-50/70 border-b border-slate-100">
-              <tr>
-                {['Category', 'Current', 'Custom Rate', 'Booking Type', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {catRates.map(cat => (
-                <tr key={cat.name} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-sm font-bold text-slate-800 whitespace-nowrap">{cat.name}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-success/10 text-success">{cat.rate}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="relative w-24">
-                      <input
-                        type="number" min="0" max="100" step="0.5"
-                        placeholder={cat.rate.replace('%', '')}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-6 py-1.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
-                        value={cat.customRate.replace('%', '')} onChange={e => updateCustomRate(cat.name, e.target.value + '%')}
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">%</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{cat.bookingType}</td>
-                  <td className="px-4 py-3">
-                    <button className="bg-brand/8 text-brand rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-brand/15 whitespace-nowrap">Save</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Booking type assignment */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="px-4 sm:px-5 py-4 border-b border-slate-100">
-          <h3 className="font-black text-slate-800 text-sm">Booking Type Assignment</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Assign the booking flow used by each category</p>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {catBookingTypes.map(cat => (
-            <div key={cat.name} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 hover:bg-slate-50">
-              <span className="text-sm font-bold text-slate-800">{cat.name}</span>
-              <select
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 sm:w-auto"
-                value={cat.type} onChange={e => updateBookingType(cat.name, e.target.value)}
-              >
-                {BOOKING_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ── Notifications Tab ── */
 function NotificationsTab() {
   const [channels, setChannels] = useState([
@@ -304,7 +190,7 @@ export default function AdminSettingsPage() {
     <div className="space-y-4 pb-6">
       <div>
         <h1 className="text-lg sm:text-xl font-black text-slate-800">Admin Settings</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Configure platform settings, commissions, and notifications</p>
+        <p className="text-sm text-slate-500 mt-0.5">Configure platform settings and admin notifications</p>
       </div>
 
       {/* Tab nav — horizontal on mobile, vertical sidebar on lg+ */}
@@ -334,7 +220,6 @@ export default function AdminSettingsPage() {
         {/* Tab content */}
         <div className="flex-1 min-w-0 w-full">
           {activeTab === 'General'       && <GeneralTab />}
-          {activeTab === 'Commission'    && <CommissionTab />}
           {activeTab === 'Notifications' && <NotificationsTab />}
         </div>
       </div>

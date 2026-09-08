@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useSupportAuth } from '../../context/SupportAuthContext'
 import { PermissionsProvider, usePermissions } from '../../context/PermissionsContext'
+import { StaffProfileProvider, useStaffProfile } from '../../context/StaffProfileContext'
 import NotificationBell from '../NotificationBell'
 
 const NAV = [
@@ -8,7 +9,7 @@ const NAV = [
   { id: 'approvals', pageId: 'supportApprovals', label: 'Vendor Approvals', path: '/support/approvals', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
   { id: 'ads', pageId: 'supportAds', label: 'Ad Review', path: '/support/ads', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg> },
   { id: 'tickets', pageId: 'tickets', label: 'Ticket Management', path: '/support/tickets', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V7a2 2 0 012-2z"/></svg> },
-  { id: 'circles', pageId: 'supportCircles', label: 'Event Circles', path: '/support/circles', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg> },
+  { id: 'admanager', pageId: 'tickets', label: 'AdManager Requests', path: '/support/admanager-requests', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg> },
 ]
 
 const TITLES = {
@@ -16,7 +17,8 @@ const TITLES = {
   '/support/approvals': 'Vendor Approvals',
   '/support/ads':       'Ad Review & Moderation',
   '/support/tickets':   'Ticket Management',
-  '/support/circles':   'Event Circle Management',
+  '/support/admanager-requests': 'AdManager Requests',
+  '/support/profile':   'My Profile',
 }
 
 function SupportLayoutInner() {
@@ -24,10 +26,12 @@ function SupportLayoutInner() {
   const { pathname } = useLocation()
   const { auth, logout } = useSupportAuth()
   const { can } = usePermissions()
+  const { profile } = useStaffProfile()
   const visibleNav = NAV.filter(n => can(n.pageId, 'READ'))
   const activeId = visibleNav.find(n => pathname.startsWith(n.path))?.id ?? ''
   const title = TITLES[pathname] ?? 'Support Portal'
-  const initials = (auth?.username ?? 'SU').slice(0, 2).toUpperCase()
+  const displayName = profile?.name || auth?.username || 'Support User'
+  const initials = displayName.slice(0, 2).toUpperCase()
 
   const handleLogout = () => {
     if (!window.confirm('Are you sure you want to logout?')) return
@@ -71,10 +75,12 @@ function SupportLayoutInner() {
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 h-16 flex items-center gap-4 shrink-0">
           <h1 className="flex-1 text-base font-bold text-slate-800">{title}</h1>
           <NotificationBell />
-          <button className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
-            <div className="w-7 h-7 rounded-full bg-success flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>
+          <button onClick={() => navigate('/support/profile')} className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors" title="My profile">
+            {profile?.profileImg
+              ? <img src={profile.profileImg} alt={displayName} className="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-100" />
+              : <div className="w-7 h-7 rounded-full bg-success flex items-center justify-center text-white text-xs font-bold shrink-0">{initials}</div>}
             <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 leading-none">{auth?.username ?? 'Support User'}</p>
+              <p className="text-xs font-bold text-slate-800 leading-none">{displayName}</p>
               <p className="text-[10px] text-slate-400 mt-0.5">{auth?.role ?? ''}</p>
             </div>
           </button>
@@ -89,7 +95,9 @@ export default function SupportLayout() {
   const { auth } = useSupportAuth()
   return (
     <PermissionsProvider authToken={auth?.token}>
-      <SupportLayoutInner />
+      <StaffProfileProvider authToken={auth?.token}>
+        <SupportLayoutInner />
+      </StaffProfileProvider>
     </PermissionsProvider>
   )
 }

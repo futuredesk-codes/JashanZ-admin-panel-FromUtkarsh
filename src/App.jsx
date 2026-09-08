@@ -29,14 +29,26 @@ import SupportAdReviewPage from "./pages/support/AdReviewPage";
 
 import FinanceLoginPage from "./pages/finance/LoginPage";
 import FinanceDashboardPage from "./pages/finance/DashboardPage";
+import VendorPaymentsPage from "./pages/finance/VendorPaymentsPage";
+import PayoutsPage from "./pages/finance/PayoutsPage";
+import FinanceCommissionsPage from "./pages/finance/CommissionsPage";
+import FinanceRefundsPage from "./pages/finance/RefundsPage";
+import FinanceReportsPage from "./pages/finance/ReportsPage";
 import RechargeManagementPage from "./pages/finance/RechargeManagementPage";
 import FinanceLayout from "./components/layout/FinanceLayout";
 
 import AdManagerLoginPage from "./pages/admanager/LoginPage";
 import AdManagerLayout from "./components/layout/AdManagerLayout";
 import AdManagerDashboardPage from "./pages/admanager/DashboardPage";
+import AdManagerProfilePage from "./pages/admanager/ProfilePage";
+import AdManagerCreateAdPage from "./pages/admanager/CreateAdPage";
+import AdManagerWalletPage from "./pages/admanager/WalletPage";
+import AdManagerAdHistoryPage from "./pages/admanager/AdHistoryPage";
+import AdManagerSupportPage from "./pages/admanager/SupportPage";
+import AdManagerPreviewPage from "./pages/admanager/PreviewPage";
 
 import PlaceholderPage from "./pages/PlaceholderPage";
+import StaffProfilePage from "./pages/StaffProfilePage";
 
 import BusinessesPage from "./pages/admin/BusinessesPage";
 import CreatorsPage from "./pages/admin/CreatorsPage";
@@ -231,6 +243,8 @@ function AppRoutes() {
             </PagePermissionGuard>
           }
         />
+
+        <Route path="profile" element={<StaffProfilePage />} />
       </Route>
 
       {/* ── Support Portal ── */}
@@ -287,6 +301,19 @@ function AppRoutes() {
         />
 
         <Route
+          path="admanager-requests"
+          element={
+            <PagePermissionGuard pageId="tickets">
+              <SupportTicketsPage
+                lockedSource="ADMANAGER"
+                title="AdManager Requests"
+                subtitle="Support requests raised from the AdManager portal"
+              />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
           path="circles"
           element={
             <PagePermissionGuard pageId="supportCircles">
@@ -294,6 +321,8 @@ function AppRoutes() {
             </PagePermissionGuard>
           }
         />
+
+        <Route path="profile" element={<StaffProfilePage />} />
       </Route>
 
       {/* ── Finance Portal ── */}
@@ -326,7 +355,7 @@ function AppRoutes() {
           path="bookings"
           element={
             <PagePermissionGuard pageId="financeBookings">
-              <PlaceholderPage title="Booking Financials" />
+              <VendorPaymentsPage />
             </PagePermissionGuard>
           }
         />
@@ -335,7 +364,7 @@ function AppRoutes() {
           path="commission"
           element={
             <PagePermissionGuard pageId="financeCommission">
-              <PlaceholderPage title="Commission Engine" />
+              <FinanceCommissionsPage />
             </PagePermissionGuard>
           }
         />
@@ -353,7 +382,7 @@ function AppRoutes() {
           path="settlements"
           element={
             <PagePermissionGuard pageId="financeSettlements">
-              <PlaceholderPage title="Settlement Management" />
+              <PayoutsPage />
             </PagePermissionGuard>
           }
         />
@@ -362,7 +391,7 @@ function AppRoutes() {
           path="refunds"
           element={
             <PagePermissionGuard pageId="financeRefunds">
-              <PlaceholderPage title="Refund Management" />
+              <FinanceRefundsPage />
             </PagePermissionGuard>
           }
         />
@@ -371,10 +400,12 @@ function AppRoutes() {
           path="reports"
           element={
             <PagePermissionGuard pageId="financeReports">
-              <PlaceholderPage title="Finance Reports" />
+              <FinanceReportsPage />
             </PagePermissionGuard>
           }
         />
+
+        <Route path="profile" element={<StaffProfilePage />} />
       </Route>
 
       {/* ── AdManager Portal ── */}
@@ -395,6 +426,12 @@ function AppRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
 
         <Route path="dashboard" element={<AdManagerDashboardPage />} />
+        <Route path="create-ad" element={<AdManagerCreateAdPage />} />
+        <Route path="ad-history" element={<AdManagerAdHistoryPage />} />
+        <Route path="wallet" element={<AdManagerWalletPage />} />
+        <Route path="preview" element={<AdManagerPreviewPage />} />
+        <Route path="support" element={<AdManagerSupportPage />} />
+        <Route path="profile" element={<AdManagerProfilePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

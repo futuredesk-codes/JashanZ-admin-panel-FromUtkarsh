@@ -4,6 +4,7 @@ import AdminSidebar from './AdminSidebar'
 import AdminHeader from './AdminHeader'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { PermissionsProvider } from '../../context/PermissionsContext'
+import { StaffProfileProvider } from '../../context/StaffProfileContext'
 
 export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -11,6 +12,7 @@ export default function AdminLayout() {
 
   return (
     <PermissionsProvider authToken={auth?.token}>
+      <StaffProfileProvider authToken={auth?.token}>
       <div className="flex h-screen bg-canvas overflow-hidden">
         <AdminSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
@@ -21,6 +23,7 @@ export default function AdminLayout() {
           </main>
         </div>
       </div>
+      </StaffProfileProvider>
     </PermissionsProvider>
   )
 }

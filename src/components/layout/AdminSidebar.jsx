@@ -100,7 +100,7 @@ const NAV_GROUPS = [
 function NavContent({ groups, activeId, onNavigate, onLogout }) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5 no-scrollbar">
         {groups.map((group, gi) => (
           group.items.length === 0 ? null :
           <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
@@ -230,7 +230,7 @@ export default function AdminSidebar({ open, onClose }) {
           </button>
         </div>
 
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(82vh - 80px)' }}>
+        <div className="overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(82vh - 80px)' }}>
           <NavContent groups={visibleGroups} activeId={activeId} onNavigate={handleNavigate} onLogout={handleLogout} />
         </div>
       </div>

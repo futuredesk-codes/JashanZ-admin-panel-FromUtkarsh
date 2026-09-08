@@ -177,12 +177,16 @@ function TicketDetailModal({ ticketId, onClose }) {
   )
 }
 
-export default function TicketsPage() {
+export default function TicketsPage({
+  lockedSource = '',
+  title = 'Ticket Management',
+  subtitle = 'Customer and vendor support tickets',
+} = {}) {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
-  const [source, setSource] = useState('')
+  const [source, setSource] = useState(lockedSource)
   const [busyId, setBusyId] = useState(null)
   const [notingTicket, setNotingTicket] = useState(null)
   const [viewingTicketId, setViewingTicketId] = useState(null)
@@ -195,13 +199,15 @@ export default function TicketsPage() {
       if (status) params.status = status
       if (source) params.source = source
       const data = await listTickets(Object.keys(params).length ? params : undefined)
-      setTickets(data.items)
+   
+      const items = lockedSource ? data.items.filter(t => t.source === lockedSource) : data.items
+      setTickets(items)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load tickets.')
     } finally {
       setLoading(false)
     }
-  }, [status, source])
+  }, [status, source, lockedSource])
 
   useEffect(() => { (async () => { await fetchTickets() })() }, [fetchTickets])
 
@@ -233,8 +239,8 @@ export default function TicketsPage() {
   return (
     <div className="space-y-5 pb-6">
       <div>
-        <h1 className="text-xl font-black text-slate-800">Ticket Management</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Customer and vendor support tickets</p>
+        <h1 className="text-xl font-black text-slate-800">{title}</h1>
+        <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
       </div>
 
       <div className="space-y-2.5">
@@ -245,13 +251,15 @@ export default function TicketsPage() {
             <button key={s} onClick={() => setStatus(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${status===s ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{s.replace('_', ' ')}</button>
           ))}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide w-14 shrink-0">From</span>
-          <button onClick={() => setSource('')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${source==='' ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>All</button>
-          {SOURCES.map(s => (
-            <button key={s} onClick={() => setSource(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${source===s ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{SOURCE_LABEL[s]}</button>
-          ))}
-        </div>
+        {!lockedSource && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide w-14 shrink-0">From</span>
+            <button onClick={() => setSource('')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${source==='' ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>All</button>
+            {SOURCES.map(s => (
+              <button key={s} onClick={() => setSource(s)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${source===s ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{SOURCE_LABEL[s]}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-danger font-semibold">{error}</p>}

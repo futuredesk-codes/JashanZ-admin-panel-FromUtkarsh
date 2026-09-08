@@ -6,6 +6,7 @@ import {
 import { getFinanceDashboardOverview } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import { useFinanceAuth } from '../../context/FinanceAuthContext'
+import SearchableSelect from '../../components/SearchableSelect'
 
 const GRANULARITIES = [
   { value: 'month', label: 'Monthly' },
@@ -156,14 +157,18 @@ export default function DashboardPage() {
           <span className="text-xs text-slate-400">To</span>
           <input type="date" min={filters.from || undefined} className={selectCls} value={filters.to} onChange={e => setF('to', e.target.value)} />
         </div>
-        <select className={selectCls} value={filters.city} onChange={e => setF('city', e.target.value)}>
-          <option value="">All cities</option>
-          {cities.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select className={selectCls} value={filters.category} onChange={e => setF('category', e.target.value)}>
-          <option value="">All categories</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+        <SearchableSelect
+          value={filters.city}
+          onChange={v => setF('city', v)}
+          options={cities.map(c => ({ value: c, label: c }))}
+          placeholder="All cities"
+        />
+        <SearchableSelect
+          value={filters.category}
+          onChange={v => setF('category', v)}
+          options={categories.map(c => ({ value: c.id, label: c.name }))}
+          placeholder="All categories"
+        />
         {(filters.from || filters.to || filters.city || filters.category) && (
           <button onClick={() => setFilters(f => ({ ...f, from: '', to: '', city: '', category: '' }))} className="text-xs font-semibold text-slate-400 hover:text-slate-600">Clear</button>
         )}

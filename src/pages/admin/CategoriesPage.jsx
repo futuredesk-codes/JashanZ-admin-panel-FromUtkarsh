@@ -154,7 +154,7 @@ function AddEditModal({ editing, onClose, onSave }) {
           <label className="flex items-center justify-between gap-4 bg-slate-50 rounded-xl px-4 py-3 cursor-pointer">
             <div>
               <p className="text-sm font-bold text-slate-800">Show in Trending</p>
-              <p className="text-xs text-slate-400 mt-0.5">Lets Trending Events created under this category appear on the user dashboard</p>
+              <p className="text-xs text-slate-400 mt-0.5">Ranks this category's vendors in the user dashboard's "Trending" section, filtered to the viewer's city</p>
             </div>
             <input
               type="checkbox"

@@ -119,63 +119,102 @@ function GeneralTab() {
   )
 }
 
-/* ── Notifications Tab ── */
-function NotificationsTab() {
-  const [channels, setChannels] = useState([
-    { id: 'push',  label: 'Push Notification', desc: 'Mobile and web push alerts',        enabled: true  },
-    { id: 'email', label: 'Email',              desc: 'Send alerts to admin email',        enabled: true  },
-    { id: 'sms',   label: 'SMS',                desc: 'Text message alerts',               enabled: false },
-    { id: 'inapp', label: 'In-App',             desc: 'Alerts inside admin dashboard',     enabled: true  },
-  ])
-  const [triggers, setTriggers] = useState([
-    { id: 'new_vendor',    label: 'New Vendor Registration', desc: 'Alert when a new vendor signs up',           enabled: true  },
-    { id: 'large_coin',    label: 'Large Coin Purchase',     desc: 'Alert on coin purchases above ₹10,000',      enabled: true  },
-    { id: 'large_booking', label: 'Booking over ₹50,000',   desc: 'Alert on any booking exceeding ₹50,000',     enabled: false },
-    { id: 'dispute',       label: 'Vendor Dispute',          desc: 'Alert when a vendor raises a dispute',       enabled: true  },
-    { id: 'failed_login',  label: 'Failed Login Attempts',   desc: 'Alert after 3+ failed login attempts',       enabled: true  },
-    { id: 'escalated',     label: 'Ticket Escalated',        desc: 'Alert when a ticket is escalated',           enabled: true  },
-  ])
-  const [saved, setSaved] = useState(false)
+/* ── Notifications Tab ──
+   Backed by the same generic AdminConfig key/value store as the General tab.
+   Only channels/triggers with real backend wiring are listed here — see
+   notificationHelper.js's notifyStaffForPage, the only sender these gate.
+   AdminUser accounts have no push token, so In-App is the only real channel;
+   Email/SMS have no sending infrastructure at all and aren't offered. */
+const NOTIFICATION_CHANNELS = [
+  { key: 'adminNotifyChannelInApp', label: 'In-App', desc: 'Alerts inside admin dashboard' },
+]
+const NOTIFICATION_TRIGGERS = [
+  { key: 'adminNotifyTriggerVendorRegistered', label: 'New Vendor Registration', desc: 'Alert when a new vendor signs up' },
+  { key: 'adminNotifyTriggerSupportTicket',    label: 'New Support Ticket',      desc: 'Alert when a support ticket or AdManager request is raised' },
+  { key: 'adminNotifyTriggerAdCreated',        label: 'New Ad Submitted',        desc: 'Alert when a new ad is waiting for review' },
+]
+const NOTIFICATION_KEYS = [...NOTIFICATION_CHANNELS, ...NOTIFICATION_TRIGGERS].map(t => t.key)
 
-  const toggleChannel = id => setChannels(cs => cs.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c))
-  const toggleTrigger = id => setTriggers(ts => ts.map(t => t.id === id ? { ...t, enabled: !t.enabled } : t))
+function NotificationsTab() {
+  const [values, setValues] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    getAllConfig()
+      .then(data => {
+        if (cancelled) return
+        const byKey = Object.fromEntries((data?.configs || []).map(c => [c.key, c.value]))
+        // Unset = on by default, matching the backend's default-enabled behavior.
+        setValues(Object.fromEntries(NOTIFICATION_KEYS.map(key => [key, byKey[key] !== false])))
+      })
+      .catch(err => !cancelled && setError(err instanceof ApiError ? err.message : 'Could not load notification settings.'))
+      .finally(() => !cancelled && setLoading(false))
+    return () => { cancelled = true }
+  }, [])
+
+  const toggle = key => setValues(v => ({ ...v, [key]: !v[key] }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await Promise.all(NOTIFICATION_KEYS.map(key => setConfig(key, values[key])))
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save notification settings.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
       <Card title="Notification Channels" desc="Choose which channels are used to send admin alerts">
-        <div className="space-y-1">
-          {channels.map(ch => (
-            <div key={ch.id} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0 gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800">{ch.label}</p>
-                <p className="text-xs text-slate-400">{ch.desc}</p>
+        {loading ? <p className="text-sm text-slate-400">Loading…</p> : (
+          <div className="space-y-1">
+            {NOTIFICATION_CHANNELS.map(ch => (
+              <div key={ch.key} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0 gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800">{ch.label}</p>
+                  <p className="text-xs text-slate-400">{ch.desc}</p>
+                </div>
+                <Toggle checked={!!values[ch.key]} onChange={() => toggle(ch.key)} />
               </div>
-              <Toggle checked={ch.enabled} onChange={() => toggleChannel(ch.id)} />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card title="Admin Alert Triggers" desc="Configure which events send admin notifications">
-        <div className="space-y-1">
-          {triggers.map(tr => (
-            <div key={tr.id} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0 gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-800 leading-snug">{tr.label}</p>
-                <p className="text-xs text-slate-400">{tr.desc}</p>
+        {loading ? <p className="text-sm text-slate-400">Loading…</p> : (
+          <div className="space-y-1">
+            {NOTIFICATION_TRIGGERS.map(tr => (
+              <div key={tr.key} className="flex items-center justify-between py-2.5 border-b border-slate-100 last:border-0 gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800 leading-snug">{tr.label}</p>
+                  <p className="text-xs text-slate-400">{tr.desc}</p>
+                </div>
+                <Toggle checked={!!values[tr.key]} onChange={() => toggle(tr.key)} />
               </div>
-              <Toggle checked={tr.enabled} onChange={() => toggleTrigger(tr.id)} />
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {error && <p className="text-sm text-danger font-semibold">{error}</p>}
 
       <div className="flex justify-end">
         <button
-          onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000) }}
-          className="bg-brand text-white rounded-xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:bg-brand/90"
+          onClick={handleSave}
+          disabled={loading || saving}
+          className="bg-brand text-white rounded-xl px-5 py-2.5 text-sm font-bold flex items-center gap-2 hover:bg-brand/90 disabled:opacity-40"
         >
-          <IconSave />{saved ? 'Preferences Saved!' : 'Save Preferences'}
+          <IconSave />{saving ? 'Saving…' : saved ? 'Preferences Saved!' : 'Save Preferences'}
         </button>
       </div>
     </div>

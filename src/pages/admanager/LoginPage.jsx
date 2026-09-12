@@ -30,7 +30,7 @@ export default function AdManagerLoginPage() {
         setError('This account does not have access to the AdManager Portal.')
         return
       }
-      loginAuth({ token: data.token, username: payload.username, role: payload.role })
+      loginAuth({ token: data.token, username: payload.username, role: payload.role, businessId: payload.id })
       navigate('/admanager/dashboard')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')

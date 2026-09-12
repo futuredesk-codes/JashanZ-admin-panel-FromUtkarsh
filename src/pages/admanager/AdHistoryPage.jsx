@@ -1,17 +1,20 @@
-import { useState } from 'react'
-import { Card, MOCK_ADS, STATUS_STYLES, STATUS_LABEL, fmtN, fmtDate, btnPrimary, btnGhost } from './shared'
+import { useState, useEffect, useCallback } from 'react'
+import { Card, STATUS_STYLES, STATUS_LABEL, fmtN, fmtDate } from './shared'
+import { getMyAdManagerAds } from '../../api/admanager'
+import { ApiError } from '../../api/client'
 
-const FILTERS = ['ALL', 'RUNNING', 'PAUSED', 'EXHAUSTED']
+const FILTERS = ['ALL', 'ACTIVE', 'PAUSED', 'EXHAUSTED', 'PENDING_REVIEW', 'REJECTED']
 
-function AnalyticsModal({ ad, onClose, onExport }) {
+function AnalyticsModal({ ad, onClose }) {
+  const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(2) : '0.00'
   const rows = [
-    ['Total Views', fmtN(ad.views)],
-    ['Targeted Users Reached', fmtN(ad.reached)],
-    ['Engagements', fmtN(ad.engagements)],
-    ['Click-Through Rate (CTR)', `${ad.ctr}%`],
-    ['Conversions (bookings after ad)', ad.conversions],
-    ['Coins Spent', ad.spent],
-    ['Categories Targeted', ad.categories.join(', ')],
+    ['Impressions', fmtN(ad.impressions || 0)],
+    ['Clicks', fmtN(ad.clicks || 0)],
+    ['Click-Through Rate (CTR)', `${ctr}%`],
+    ['Coins Spent', ad.coinsSpent],
+    ['Coins Remaining', ad.coinsRemaining],
+    ['Target City', ad.targetCity || '—'],
+    ['Categories Targeted', (ad.targetCategories || []).map(c => c.name).join(', ') || '—'],
     ['Created', fmtDate(ad.createdAt)],
   ]
   return (
@@ -20,7 +23,7 @@ function AnalyticsModal({ ad, onClose, onExport }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
             <h3 className="font-black text-slate-800 text-base">{ad.title}</h3>
-            <p className="text-xs text-slate-400">{ad.id} · {ad.media}</p>
+            <p className="text-xs text-slate-400">{String(ad._id).slice(-8).toUpperCase()} · {ad.mediaType}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -34,10 +37,6 @@ function AnalyticsModal({ ad, onClose, onExport }) {
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
-          <button onClick={() => onExport('PDF')} className={btnGhost}>Export PDF</button>
-          <button onClick={() => onExport('Excel')} className={btnPrimary}>Export Excel</button>
-        </div>
       </div>
     </div>
   )
@@ -46,24 +45,36 @@ function AnalyticsModal({ ad, onClose, onExport }) {
 export default function AdHistoryPage() {
   const [filter, setFilter] = useState('ALL')
   const [viewAd, setViewAd] = useState(null)
-  const [toast, setToast] = useState('')
-  const flash = (t) => { setToast(t); setTimeout(() => setToast(''), 2600) }
+  const [ads, setAds] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const ads = filter === 'ALL' ? MOCK_ADS : MOCK_ADS.filter(a => a.status === filter)
+  const loadAds = useCallback(() => {
+    setLoading(true)
+    setError('')
+    getMyAdManagerAds()
+      .then(data => setAds(data.ads || []))
+      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load ads.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadAds' own setState calls are the fetch-on-mount trigger, not a derived-render value
+    loadAds()
+  }, [loadAds])
+
+  const filtered = filter === 'ALL' ? ads : ads.filter(a => a.status === filter)
 
   return (
     <div className="space-y-5 pb-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-black text-slate-800">Ad History &amp; Analytics</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Every ad you've run, with views, CTR and conversions</p>
-        </div>
-        <button onClick={() => flash('All ads exported — demo.')} className={btnPrimary}>Export All</button>
+      <div>
+        <h1 className="text-xl font-black text-slate-800">Ad History &amp; Analytics</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Every ad you've run, with impressions, clicks and CTR</p>
       </div>
 
-      {toast && <p className="text-sm text-slate-600 bg-slate-100 rounded-xl px-4 py-2.5">{toast}</p>}
+      {error && <p className="text-sm text-danger font-semibold bg-danger/5 border border-danger/20 rounded-xl px-4 py-2.5">{error}</p>}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${filter === f ? 'bg-info text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
             {f === 'ALL' ? 'All' : STATUS_LABEL[f]}
@@ -76,43 +87,47 @@ export default function AdHistoryPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50/70 border-b border-slate-100">
               <tr>
-                {['Ad', 'Status', 'Views', 'Reached', 'CTR', 'Conversions', 'Coins', 'Created', ''].map(h => (
+                {['Ad', 'Status', 'Impressions', 'Clicks', 'CTR', 'Coins', 'Created', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {ads.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400 text-sm">No ads with this status</td></tr>
-              ) : ads.map(ad => (
-                <tr key={ad.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setViewAd(ad)}>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">{ad.media}</span>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 leading-tight">{ad.title}</p>
-                        <p className="text-[10px] text-slate-300 font-mono">{ad.id}</p>
+              {loading ? (
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">No ads with this status</td></tr>
+              ) : filtered.map(ad => {
+                const ctr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : '0.0'
+                return (
+                  <tr key={ad._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setViewAd(ad)}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">{ad.mediaType}</span>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800 leading-tight">{ad.title}</p>
+                          <p className="text-[10px] text-slate-300 font-mono">{String(ad._id).slice(-8).toUpperCase()}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[ad.status]}`}>{STATUS_LABEL[ad.status]}</span></td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmtN(ad.views)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{fmtN(ad.reached)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{ad.ctr}%</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{ad.conversions}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{ad.spent}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(ad.createdAt)}</td>
-                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setViewAd(ad)} className="text-xs font-bold text-info hover:underline whitespace-nowrap">View report</button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[ad.status] || 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[ad.status] || ad.status}</span></td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmtN(ad.impressions || 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{fmtN(ad.clicks || 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{ctr}%</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{ad.coinsRemaining}/{ad.coinsSpent}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(ad.createdAt)}</td>
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => setViewAd(ad)} className="text-xs font-bold text-info hover:underline whitespace-nowrap">View report</button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </Card>
 
-      {viewAd && <AnalyticsModal ad={viewAd} onClose={() => setViewAd(null)} onExport={(fmt) => flash(`${viewAd.id} report exported as ${fmt} — demo.`)} />}
+      {viewAd && <AnalyticsModal ad={viewAd} onClose={() => setViewAd(null)} />}
     </div>
   )
 }

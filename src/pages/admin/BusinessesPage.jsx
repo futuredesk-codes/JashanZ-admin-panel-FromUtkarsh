@@ -104,6 +104,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
                 ['Address', profile.address || '—'],
                 ['Rating', profile.averageRating ? `${profile.averageRating} (${profile.totalReviews} reviews)` : 'No reviews yet'],
                 ['Total Bookings', biz.bookingsCount],
+                ['BOOM Videos', biz.boomsCount],
                 ['Revenue', fmtMoney(biz.revenue)],
                 ['Registration Paid', biz.isPaid ? 'Yes' : 'No'],
                 ['Registered On', fmtDate(biz.createdAt)],

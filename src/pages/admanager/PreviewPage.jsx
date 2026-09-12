@@ -23,7 +23,7 @@ export default function PreviewPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card title="Tweak the preview">
           <div className="space-y-3">
             <div className="flex gap-2">
@@ -46,25 +46,9 @@ export default function PreviewPage() {
         </Card>
 
         {/* BOOM feed */}
-        <Card title="In the BOOM feed" sub="Priority placement · 3-sec scroll-lock">
+        <Card title="In the BOOM feed" sub="Appears mixed into the customer's feed, marked Sponsored">
           <AdPhonePreview title={d.title} desc={d.desc} vendor={vendor} media={d.media} />
-        </Card>
-
-        {/* Home banner */}
-        <Card title="On the Customer App home banner">
-          <div className="rounded-xl overflow-hidden border border-slate-200">
-            <div className="h-28 bg-linear-to-r from-info/80 to-info flex items-center px-4">
-              <div className="text-white">
-                <p className="text-[10px] font-bold opacity-80">Sponsored · {vendor}</p>
-                <p className="text-sm font-black leading-tight line-clamp-2">{d.title}</p>
-              </div>
-            </div>
-            <div className="p-3 flex items-center justify-between bg-white">
-              <p className="text-[11px] text-slate-400 line-clamp-1">{d.desc}</p>
-              <button className="bg-info text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shrink-0">Book Now</button>
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-3">Clickable demo — buttons are inert in preview.</p>
+          <p className="text-[11px] text-slate-400 text-center mt-3">Tapping the ad in the real feed opens your business profile.</p>
         </Card>
       </div>
     </div>

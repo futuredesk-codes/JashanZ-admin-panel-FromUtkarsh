@@ -1,48 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdManagerAuth } from '../../context/AdManagerAuthContext'
-
-
-const MOCK = {
-  kpis: {
-    totalAds: 12,
-    activeAds: 5,
-    pausedAds: 3,
-    availableCoins: 640,
-    referralCoins: 60,
-    totalImpressions: 48230,
-    categoriesReached: 7,
-  },
-  wallet: {
-    available: 640,
-    referral: 60,
-    minToRun: 100,
-    rate: '₹10 = 1 Coin',
-    reach: '1 Coin ≈ 10 interested customers',
-    packs: [
-      { coins: 100, price: 1000 },
-      { coins: 500, price: 5000, popular: true },
-      { coins: 1000, price: 10000 },
-    ],
-  },
-  ads: [
-    { id: 'AD-1042', title: 'Wedding Makeup Reel', media: 'BOOM', categories: ['Makeup Artists', 'Wedding'], status: 'RUNNING', impressions: 18420, engagements: 1260, coinsLeft: 210 },
-    { id: 'AD-1039', title: 'Diwali Decor Boost', media: 'IMAGE', categories: ['Decoration'], status: 'PAUSED', impressions: 9310, engagements: 540, coinsLeft: 40 },
-    { id: 'AD-1031', title: 'Premium Catering Promo', media: 'BOOM', categories: ['Catering', 'Event Organizer'], status: 'RUNNING', impressions: 12750, engagements: 980, coinsLeft: 150 },
-    { id: 'AD-1024', title: 'Summer Catering Offer', media: 'IMAGE', categories: ['Catering'], status: 'EXHAUSTED', impressions: 7750, engagements: 410, coinsLeft: 0 },
-  ],
-  categoriesReached: ['Makeup Artists', 'Decoration', 'Catering', 'Photographer', 'DJ', 'Event Organizer', 'Banquet Hall'],
-}
+import { getAdManagerDashboard, getMyAdManagerAds, pauseAdManagerAd, resumeAdManagerAd, getAdManagerWallet, getAdManagerCoinPacks } from '../../api/admanager'
+import { ApiError } from '../../api/client'
 
 const fmtN = n => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n))
 const fmtMoney = n => `₹${Number(n).toLocaleString('en-IN')}`
 
+// Real backend status enum (adManagerModel.js) — PENDING_REVIEW/REJECTED
+// included so every ad this table can actually hold renders correctly, not
+// just the RUNNING/PAUSED/EXHAUSTED subset a running ad ever transitions through.
 const STATUS_STYLES = {
-  RUNNING: 'bg-success/10 text-success',
+  ACTIVE: 'bg-success/10 text-success',
   PAUSED: 'bg-warning/10 text-warning',
   EXHAUSTED: 'bg-slate-100 text-slate-500',
+  PENDING_REVIEW: 'bg-info/10 text-info',
+  REJECTED: 'bg-danger/10 text-danger',
 }
-const STATUS_LABEL = { RUNNING: 'Running', PAUSED: 'Paused', EXHAUSTED: 'Exhausted' }
+const STATUS_LABEL = {
+  ACTIVE: 'Running',
+  PAUSED: 'Paused',
+  EXHAUSTED: 'Exhausted',
+  PENDING_REVIEW: 'Pending Review',
+  REJECTED: 'Rejected',
+}
 
 /* ── Icons ── */
 const I = {
@@ -90,16 +71,63 @@ function Card({ title, sub, action, children }) {
   )
 }
 
-const DEMO = 'This screen is a static preview — actions here are not wired up yet.'
-
 export default function AdManagerDashboardPage() {
   const navigate = useNavigate()
   const { auth } = useAdManagerAuth()
-  const [toast, setToast] = useState('')
-  const demo = () => { setToast(DEMO); setTimeout(() => setToast(''), 2500) }
   const go = (path) => navigate(path)
 
-  const k = MOCK.kpis
+  const [kpis, setKpis] = useState(null)
+  const [ads, setAds] = useState([])
+  const [wallet, setWallet] = useState(null)
+  const [packs, setPacks] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [actioningId, setActioningId] = useState(null)
+
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [dashboard, adsData, walletData, packsData] = await Promise.all([
+        getAdManagerDashboard(),
+        getMyAdManagerAds(),
+        getAdManagerWallet(),
+        getAdManagerCoinPacks(),
+      ])
+      setKpis(dashboard)
+      setAds((adsData.ads || []).slice(0, 5))
+      setWallet(walletData.wallet)
+      setPacks(packsData.packs || [])
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not load dashboard.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadAll's own setState calls are the fetch-on-mount trigger, not a derived-render value
+    loadAll()
+  }, [loadAll])
+
+  const handleToggle = async (ad) => {
+    if (actioningId) return
+    setActioningId(ad._id)
+    setError('')
+    try {
+      if (ad.status === 'ACTIVE') await pauseAdManagerAd(ad._id)
+      else if (ad.status === 'PAUSED') await resumeAdManagerAd(ad._id)
+      await loadAll()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not update ad.')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  const categoriesReachedNames = Array.from(
+    new Set(ads.flatMap(ad => (ad.targetCategories || []).map(c => c.name)))
+  )
 
   return (
     <div className="space-y-6 pb-6">
@@ -115,16 +143,24 @@ export default function AdManagerDashboardPage() {
         </button>
       </div>
 
-      {toast && <p className="text-sm text-slate-600 bg-slate-100 rounded-xl px-4 py-2.5">{toast}</p>}
+      {error && (
+        <p className="text-sm text-danger font-semibold bg-danger/5 border border-danger/20 rounded-xl px-4 py-2.5">{error}</p>
+      )}
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatCard label="Total Ads Created" value={k.totalAds} sub="All time" color="brand" icon={I.ads} />
-        <StatCard label="Active Ads" value={k.activeAds} sub="Currently running" color="success" icon={I.play} />
-        <StatCard label="Paused Ads" value={k.pausedAds} sub="Temporarily halted" color="warning" icon={I.pause} />
-        <StatCard label="Available Coin Credits" value={fmtN(k.availableCoins)} sub={`+ ${k.referralCoins} referral`} color="info" icon={I.coin} />
-        <StatCard label="Total Impressions" value={fmtN(k.totalImpressions)} sub="Across all ads" color="brand" icon={I.eye} />
-        <StatCard label="Customer Categories Reached" value={k.categoriesReached} sub="Interest-targeted" color="info" icon={I.target} />
+        <StatCard label="Total Ads Created" value={loading ? '…' : (kpis?.totalAds ?? 0)} sub="All time" color="brand" icon={I.ads} />
+        <StatCard label="Active Ads" value={loading ? '…' : (kpis?.activeAds ?? 0)} sub="Currently running" color="success" icon={I.play} />
+        <StatCard label="Paused Ads" value={loading ? '…' : (kpis?.pausedAds ?? 0)} sub="Temporarily halted" color="warning" icon={I.pause} />
+        <StatCard
+          label="Available Coin Credits"
+          value={loading ? '…' : fmtN(kpis?.availableCoins ?? 0)}
+          sub={loading ? '' : `+ ${kpis?.referralCoins ?? 0} referral`}
+          color="info"
+          icon={I.coin}
+        />
+        <StatCard label="Total Impressions" value={loading ? '…' : fmtN(kpis?.totalImpressions ?? 0)} sub="Across all ads" color="brand" icon={I.eye} />
+        <StatCard label="Customer Categories Reached" value={loading ? '…' : (kpis?.categoriesReached ?? 0)} sub="Interest-targeted" color="info" icon={I.target} />
       </div>
 
       {/* Quick actions */}
@@ -151,46 +187,58 @@ export default function AdManagerDashboardPage() {
             action={<button onClick={() => go('/admanager/ad-history')} className="text-xs font-bold text-info hover:underline">View all</button>}
           >
             <div className="overflow-x-auto -m-5">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/70 border-b border-slate-100">
-                  <tr>
-                    {['Ad', 'Categories', 'Status', 'Impressions', 'Engagements', 'Coins left', ''].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {MOCK.ads.map(ad => (
-                    <tr key={ad.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">{ad.media}</span>
-                          <div>
-                            <p className="text-xs font-bold text-slate-800 leading-tight">{ad.title}</p>
-                            <p className="text-[10px] text-slate-300 font-mono">{ad.id}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {ad.categories.map(c => <span key={c} className="px-2 py-0.5 rounded-full bg-brand/8 text-brand text-[10px] font-bold">{c}</span>)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[ad.status]}`}>{STATUS_LABEL[ad.status]}</span></td>
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmtN(ad.impressions)}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{fmtN(ad.engagements)}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{ad.coinsLeft}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          {ad.status === 'RUNNING' && <button onClick={demo} className="w-7 h-7 flex items-center justify-center rounded-lg bg-warning/8 text-warning hover:bg-warning/15" title="Pause">{I.pause}</button>}
-                          {ad.status === 'PAUSED' && <button onClick={demo} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15" title="Resume">{I.play}</button>}
-                          <button onClick={() => go('/admanager/ad-history')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15" title="Analytics">{I.history}</button>
-                        </div>
-                      </td>
+              {loading ? (
+                <p className="text-sm text-slate-400 text-center py-6">Loading…</p>
+              ) : ads.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-6">No ads yet — create your first one.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50/70 border-b border-slate-100">
+                    <tr>
+                      {['Ad', 'Categories', 'Status', 'Impressions', 'Clicks', 'Coins left', ''].map(h => (
+                        <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ads.map(ad => (
+                      <tr key={ad._id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0">{ad.mediaType}</span>
+                            <div>
+                              <p className="text-xs font-bold text-slate-800 leading-tight">{ad.title}</p>
+                              <p className="text-[10px] text-slate-300 font-mono">{String(ad._id).slice(-8).toUpperCase()}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(ad.targetCategories || []).length === 0
+                              ? <span className="text-[11px] text-slate-300">—</span>
+                              : ad.targetCategories.map(c => <span key={c._id} className="px-2 py-0.5 rounded-full bg-brand/8 text-brand text-[10px] font-bold">{c.name}</span>)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[ad.status] || 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[ad.status] || ad.status}</span></td>
+                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmtN(ad.impressions || 0)}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{fmtN(ad.clicks || 0)}</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{ad.coinsRemaining}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            {ad.status === 'ACTIVE' && (
+                              <button onClick={() => handleToggle(ad)} disabled={actioningId === ad._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-warning/8 text-warning hover:bg-warning/15 disabled:opacity-50" title="Pause">{I.pause}</button>
+                            )}
+                            {ad.status === 'PAUSED' && (
+                              <button onClick={() => handleToggle(ad)} disabled={actioningId === ad._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 disabled:opacity-50" title="Resume">{I.play}</button>
+                            )}
+                            <button onClick={() => go('/admanager/ad-history')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15" title="Analytics">{I.history}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </Card>
         </div>
@@ -201,22 +249,24 @@ export default function AdManagerDashboardPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-info/8 rounded-xl p-3">
                 <p className="text-[11px] font-semibold text-info/80 uppercase tracking-wide">Available</p>
-                <p className="text-xl font-black text-info">{MOCK.wallet.available}</p>
+                <p className="text-xl font-black text-info">{loading ? '…' : (wallet?.coins ?? 0)}</p>
               </div>
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Referral coins</p>
-                <p className="text-xl font-black text-slate-700">{MOCK.wallet.referral}</p>
-                <p className="text-[10px] text-slate-400">valid 30 days · no withdrawal</p>
+                <p className="text-xl font-black text-slate-700">{loading ? '…' : (wallet?.referralCoins ?? 0)}</p>
+                <p className="text-[10px] text-slate-400">no withdrawal</p>
               </div>
             </div>
-            <p className="text-[11px] text-slate-400">Min {MOCK.wallet.minToRun} coins to run an ad · {MOCK.wallet.rate} · {MOCK.wallet.reach}</p>
+            <p className="text-[11px] text-slate-400">Minimum 100 coins to run an ad.</p>
 
             <div>
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Buy coins</p>
               <div className="space-y-2">
-                {MOCK.wallet.packs.map(p => (
-                  <button key={p.coins} onClick={() => go('/admanager/wallet')} className={`w-full flex items-center justify-between rounded-xl border px-3 py-2.5 text-sm transition-colors ${p.popular ? 'border-info/40 bg-info/5' : 'border-slate-200 hover:border-info/40'}`}>
-                    <span className="font-bold text-slate-800">{p.coins} coins {p.popular && <span className="ml-1 text-[10px] text-info font-bold">POPULAR</span>}</span>
+                {packs.length === 0 ? (
+                  <p className="text-xs text-slate-400">{loading ? 'Loading…' : 'No coin packs available.'}</p>
+                ) : packs.map(p => (
+                  <button key={p._id} onClick={() => go('/admanager/wallet')} className="w-full flex items-center justify-between rounded-xl border border-slate-200 hover:border-info/40 px-3 py-2.5 text-sm transition-colors">
+                    <span className="font-bold text-slate-800">{p.coins} coins</span>
                     <span className="font-black text-slate-800">{fmtMoney(p.price)}</span>
                   </button>
                 ))}
@@ -231,32 +281,24 @@ export default function AdManagerDashboardPage() {
         <div className="lg:col-span-2">
           <Card title="Targeting & Display" sub="Where and to whom your ads appear">
             <ul className="space-y-2 text-sm text-slate-600">
-              <li className="flex gap-2"><span className="text-info mt-0.5">{I.target}</span> Shown only to customers with recent interest in your selected categories (browsing, search, bookings, BOOM engagement).</li>
-              <li className="flex gap-2"><span className="text-info mt-0.5">{I.play}</span> Priority placement in the <strong>BOOM video feed</strong> and the Customer App <strong>home banner</strong>.</li>
-              <li className="flex gap-2"><span className="text-info mt-0.5">{I.eye}</span> 3-second scroll-lock — customers can't skip during the lock window.</li>
+              <li className="flex gap-2"><span className="text-info mt-0.5">{I.target}</span> Shown only to customers whose registered city matches the city you target when creating the ad.</li>
+              <li className="flex gap-2"><span className="text-info mt-0.5">{I.play}</span> Appears in the customer's <strong>BOOM video feed</strong>, mixed in with regular videos and marked "Sponsored".</li>
+              <li className="flex gap-2"><span className="text-info mt-0.5">{I.eye}</span> Each time it's shown, one coin is spent — the ad pauses itself automatically once coins run out.</li>
             </ul>
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Categories reached</p>
-              <div className="flex flex-wrap gap-1.5">
-                {MOCK.categoriesReached.map(c => <span key={c} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">{c}</span>)}
+            {categoriesReachedNames.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Categories selected across your ads</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {categoriesReachedNames.map(c => <span key={c} className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold">{c}</span>)}
+                </div>
               </div>
-            </div>
+            )}
           </Card>
         </div>
 
-        {/* Mobile ad preview */}
-        <Card title="Ad Preview" sub="How your ad looks in the Customer App">
-          <div className="mx-auto w-40 rounded-[1.75rem] border-4 border-slate-800 bg-slate-800 p-1.5">
-            <div className="rounded-[1.25rem] overflow-hidden bg-slate-100">
-              <div className="h-40 bg-linear-to-b from-slate-300 to-slate-400 flex items-center justify-center text-[10px] font-black text-white/80">BOOM VIDEO</div>
-              <div className="p-2.5">
-                <p className="text-[11px] font-black text-slate-800 leading-tight">Wedding Makeup Reel</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">Sponsored · salonvala</p>
-                <button className="mt-2 w-full bg-info text-white text-[10px] font-bold py-1.5 rounded-lg">Book Now</button>
-              </div>
-            </div>
-          </div>
-          <p className="text-[11px] text-slate-400 text-center mt-3">Clickable demo — preview only.</p>
+        <Card title="Ad Preview" sub="Preview how your ads look before publishing">
+          <p className="text-sm text-slate-500">Open the full preview tool to see your ad exactly as customers will.</p>
+          <button onClick={() => go('/admanager/preview')} className="mt-3 bg-info/8 text-info rounded-xl px-4 py-2 text-sm font-bold hover:bg-info/15">Open Ad Preview</button>
         </Card>
       </div>
 
@@ -267,7 +309,7 @@ export default function AdManagerDashboardPage() {
             <ul className="text-xs text-slate-500 space-y-1.5 list-disc pl-4">
               <li>Coins are strictly for ad spend — no conversion or withdrawal to a bank account.</li>
               <li>Purchased coins are non-refundable.</li>
-              <li>Referral coins are valid for 30 days and cannot be withdrawn as cash.</li>
+              <li>Referral coins cannot be withdrawn as cash.</li>
               <li>Any misuse results in banning of AdManager access.</li>
             </ul>
           </Card>

@@ -113,6 +113,10 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Registered On</p>
               <p className="text-sm font-bold text-slate-800">{fmtDate(creator.createdAt)}</p>
             </div>
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">BOOM Videos</p>
+              <p className="text-sm font-bold text-slate-800">{creator.boomsCount ?? 0}</p>
+            </div>
             {creator.bio && (
               <div className="col-span-2 bg-slate-50 rounded-xl p-3">
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Bio</p>

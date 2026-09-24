@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'
 
 // Each portal keeps its own session so they can stay logged in simultaneously
 // across browser tabs (e.g. Admin opens Support/Finance in new tabs without

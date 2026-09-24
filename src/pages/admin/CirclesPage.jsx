@@ -106,13 +106,20 @@ function CityMultiSelect({ selected, onToggle }) {
 
 /* ── Add/Edit Modal ── */
 function AddEditModal({ editing, categories, onClose, onSave }) {
+  // serverIndex tags each item that came from the DB with its actual index
+  // there (used by GET /circles/:id/media/:index for re-crop/Resize) — this
+  // stays fixed even as the LOCAL array's positions shift from deletes/adds
+  // in this session, so Resize always fetches the right photo's bytes
+  // instead of whatever the server happens to have at the current display
+  // position. Items added in this session (no serverIndex) always have a
+  // previewUrl instead, so they never need this server round-trip at all.
   const [form, setForm] = useState(editing ? {
     name: editing.name,
     description: editing.description || '',
     category: editing.category?._id || '',
     city: Array.isArray(editing.city) ? editing.city : (editing.city ? [editing.city] : []),
     coverImage: editing.coverImage || '',
-    coverMedia: editing.coverMedia || [],
+    coverMedia: (editing.coverMedia || []).map((media, i) => ({ ...media, serverIndex: i })),
   } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -211,7 +218,10 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
     setError('')
     let source = media.previewUrl
     try {
-      if (!source) source = URL.createObjectURL(await getCircleMediaBlob(editing._id, index))
+      // media.serverIndex (fixed at load time) — not the live array `index`,
+      // which drifts the moment anything's deleted/added locally and would
+      // otherwise fetch/crop a different photo than the one actually clicked.
+      if (!source) source = URL.createObjectURL(await getCircleMediaBlob(editing._id, media.serverIndex))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load image for resizing.')
       return

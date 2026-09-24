@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getCircles, createCircle, updateCircle, toggleCircle, deleteCircle } from '../../api/circles'
+import { getCircles, createCircle, updateCircle, toggleCircle, deleteCircle, getCircleMediaBlob } from '../../api/circles'
 import { getCategories } from '../../api/categories'
 import { getPresignedUrl } from '../../api/upload'
 import { ApiError, uploadToPresignedUrl } from '../../api/client'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import Cropper from 'react-easy-crop'
 
-const EMPTY_FORM = { name: '', description: '', category: '', city: [], coverImage: '' }
+const EMPTY_FORM = { name: '', description: '', category: '', city: [], coverImage: '', coverMedia: [] }
 
 const CITIES = [
   'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata',
@@ -22,6 +23,31 @@ const IconChevron = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="
 const IconUpload = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
 
 const FALLBACK_IMG = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400'
+
+const createCroppedImage = (imageSrc, cropPixels) => new Promise((resolve, reject) => {
+  const image = new Image()
+  if (/^https?:\/\//i.test(imageSrc)) image.crossOrigin = 'anonymous'
+  image.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = cropPixels.width
+    canvas.height = cropPixels.height
+    const context = canvas.getContext('2d')
+    context.drawImage(
+      image,
+      cropPixels.x,
+      cropPixels.y,
+      cropPixels.width,
+      cropPixels.height,
+      0,
+      0,
+      cropPixels.width,
+      cropPixels.height,
+    )
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Could not crop image.')), 'image/jpeg', 0.92)
+  }
+  image.onerror = () => reject(new Error('Could not read image.'))
+  image.src = imageSrc
+})
 
 /* ── Multi-select city dropdown ── */
 function CityMultiSelect({ selected, onToggle }) {
@@ -86,10 +112,16 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
     category: editing.category?._id || '',
     city: Array.isArray(editing.city) ? editing.city : (editing.city ? [editing.city] : []),
     coverImage: editing.coverImage || '',
+    coverMedia: editing.coverMedia || [],
   } : EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [cropSource, setCropSource] = useState(null)
+  const [cropFile, setCropFile] = useState(null)
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
   const fileInputRef = useRef(null)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -101,21 +133,93 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
     }))
   }
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    setError('')
-    setUploading(true)
+  const uploadMedia = async (file, previewFile = file) => {
+    const { presignedUrl, fileUrl } = await getPresignedUrl(file.name, file.type, 'circles')
+    await uploadToPresignedUrl(presignedUrl, file)
+    return {
+      url: fileUrl,
+      previewUrl: URL.createObjectURL(previewFile),
+      type: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+    }
+  }
+
+  const processFiles = async (files) => {
+    if (files.length === 0) {
+      setUploading(false)
+      return
+    }
+    const [file, ...remaining] = files
     try {
-      const { presignedUrl, fileUrl } = await getPresignedUrl(file.name, file.type, 'circles')
-      await uploadToPresignedUrl(presignedUrl, file)
-      set('coverImage', fileUrl)
+      if (file.type.startsWith('image/')) {
+        const source = URL.createObjectURL(file)
+        setCropFile({ file, remaining, index: null })
+        setCropSource(source)
+        setCrop({ x: 0, y: 0 })
+        setZoom(1)
+        return
+      }
+      const uploaded = await uploadMedia(file)
+      setForm((current) => ({ ...current, coverMedia: [...current.coverMedia, uploaded] }))
+      await processFiles(remaining)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not upload image.')
-    } finally {
+      setError(err instanceof ApiError ? err.message : 'Could not upload media.')
       setUploading(false)
     }
+  }
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (files.length === 0) return
+    setError('')
+    setUploading(true)
+    processFiles(files)
+  }
+
+  const handleCropConfirm = async () => {
+    if (!cropSource || !cropFile || !croppedAreaPixels) return
+    try {
+      const croppedBlob = await createCroppedImage(cropSource, croppedAreaPixels)
+      const fileName = cropFile.file?.name || `circle-media-${Date.now()}.jpg`
+      const croppedFile = new File([croppedBlob], fileName.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+      const uploaded = await uploadMedia(croppedFile, croppedFile)
+      setForm((current) => ({
+        ...current,
+        coverMedia: cropFile.index === null
+          ? [...current.coverMedia, uploaded]
+          : current.coverMedia.map((media, index) => index === cropFile.index ? uploaded : media),
+      }))
+      URL.revokeObjectURL(cropSource)
+      setCropSource(null)
+      setCropFile(null)
+      if (cropFile.index === null) await processFiles(cropFile.remaining)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not crop or upload image.')
+      setUploading(false)
+    }
+  }
+
+  const handleCropCancel = () => {
+    if (cropSource) URL.revokeObjectURL(cropSource)
+    setCropSource(null)
+    setCropFile(null)
+    setUploading(false)
+  }
+
+  const editMediaCrop = async (media, index) => {
+    if (media.type !== 'IMAGE') return
+    setError('')
+    let source = media.previewUrl
+    try {
+      if (!source) source = URL.createObjectURL(await getCircleMediaBlob(editing._id, index))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not load image for resizing.')
+      return
+    }
+    setCropFile({ file: null, remaining: [], index })
+    setCropSource(source)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
   }
 
   const handleSubmit = async (e) => {
@@ -137,6 +241,7 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
   }
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -184,7 +289,7 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Poster / Cover Image <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Poster / Cover Media <span className="normal-case font-normal text-slate-400">(images are cropped to 16:9)</span></label>
             <div className="flex gap-2">
               <input
                 className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
@@ -194,7 +299,8 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
+                multiple
                 className="hidden"
                 onChange={handleFileChange}
               />
@@ -207,6 +313,19 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
                 <IconUpload /> {uploading ? 'Uploading…' : 'Upload'}
               </button>
             </div>
+            {form.coverMedia.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {form.coverMedia.map((media, index) => (
+                  <div key={`${media.url}-${index}`} className="relative rounded-xl overflow-hidden border border-slate-100 bg-slate-50 aspect-video">
+                    {media.type === 'VIDEO' ? <video src={media.previewUrl || media.url} className="w-full h-full object-contain bg-slate-100" muted /> : <img src={media.previewUrl || media.url} alt="" className="w-full h-full object-contain bg-slate-100" />}
+                    {media.type === 'IMAGE' && (
+                      <button type="button" onClick={() => editMediaCrop(media, index)} className="absolute bottom-1 left-1 px-2 py-1 rounded-lg bg-black/65 text-white text-[10px] font-bold">Resize</button>
+                    )}
+                    <button type="button" onClick={() => set('coverMedia', form.coverMedia.filter((_, i) => i !== index))} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center"><IconX /></button>
+                  </div>
+                ))}
+              </div>
+            )}
             {form.coverImage && (
               <img src={form.coverImage} alt="" className="w-full h-32 object-cover rounded-xl mt-2 border border-slate-100" />
             )}
@@ -225,6 +344,36 @@ function AddEditModal({ editing, categories, onClose, onSave }) {
         </form>
       </div>
     </div>
+    {cropSource && (
+      <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 className="font-black text-slate-800">Set image crop (16:9)</h3>
+            <p className="text-xs text-slate-500 mt-1">Drag the image and use the zoom slider to choose what appears in the circle.</p>
+          </div>
+          <div className="relative h-72 bg-slate-900">
+            <Cropper
+              image={cropSource}
+              crop={crop}
+              zoom={zoom}
+              aspect={16 / 9}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={(_, pixels) => setCroppedAreaPixels(pixels)}
+            />
+          </div>
+          <div className="px-5 py-4">
+            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Zoom</label>
+            <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={e => setZoom(Number(e.target.value))} className="w-full accent-brand" />
+            <div className="flex gap-3 mt-4">
+              <button type="button" onClick={handleCropCancel} className="flex-1 bg-slate-100 text-slate-600 rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-slate-200">Cancel</button>
+              <button type="button" onClick={handleCropConfirm} className="flex-1 bg-brand text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-brand/90">Use This Crop</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -286,6 +435,9 @@ export default function CirclesPage() {
       category: form.category || undefined,
       city: form.city,
       coverImage: form.coverImage || undefined,
+      coverMedia: form.coverMedia.length
+        ? form.coverMedia.map(({ url, type }) => ({ url, type }))
+        : undefined,
     }
     if (editingCircle) {
       await updateCircle(editingCircle._id, payload)

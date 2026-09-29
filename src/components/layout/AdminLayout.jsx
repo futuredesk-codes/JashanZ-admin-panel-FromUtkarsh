@@ -5,6 +5,7 @@ import AdminHeader from './AdminHeader'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { PermissionsProvider } from '../../context/PermissionsContext'
 import { StaffProfileProvider } from '../../context/StaffProfileContext'
+import '../../admin-theme.css'
 
 export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -13,12 +14,12 @@ export default function AdminLayout() {
   return (
     <PermissionsProvider authToken={auth?.token}>
       <StaffProfileProvider authToken={auth?.token}>
-      <div className="flex h-screen bg-canvas overflow-hidden">
+      <div className="jz-admin flex h-screen overflow-hidden">
         <AdminSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-        <div className="flex-1 flex flex-col min-w-0 lg:ml-60 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 lg:ml-[250px] overflow-hidden">
           <AdminHeader onMenuClick={() => setDrawerOpen(true)} />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <main className="flex-1 overflow-y-auto p-4 lg:p-8">
             <Outlet />
           </main>
         </div>

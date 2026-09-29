@@ -29,7 +29,7 @@ function Toggle({ checked, onChange }) {
       onClick={() => onChange(!checked)}
       className={`w-11 h-6 rounded-full flex items-center shrink-0 transition-colors duration-200 ${checked ? 'bg-brand justify-end' : 'bg-slate-200 justify-start'}`}
     >
-      <div className="w-4 h-4 bg-white rounded-full mx-1 shadow-sm" />
+      <div className="w-4 h-4 rounded-full mx-1 shadow-sm" style={{ background: '#fff' }} />
     </button>
   )
 }

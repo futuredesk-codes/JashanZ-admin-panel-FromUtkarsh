@@ -95,14 +95,12 @@ const NAV_GROUPS = [
 function NavContent({ groups, activeId, onNavigate, onLogout }) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-0.5 no-scrollbar">
+      <nav className="flex-1 px-3.5 py-2 overflow-y-auto no-scrollbar">
         {groups.map((group, gi) => (
           group.items.length === 0 ? null :
-          <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
+          <div key={gi} className={group.label && gi > 0 ? 'mt-4' : ''}>
             {group.label && (
-              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest px-3 mb-1.5">
-                {group.label}
-              </p>
+              <p className="jz-nav-label">{group.label}</p>
             )}
             {group.items.map(({ id, label, path, icon: Icon }) => {
               const isActive = activeId === id
@@ -110,11 +108,7 @@ function NavContent({ groups, activeId, onNavigate, onLogout }) {
                 <button
                   key={id}
                   onClick={() => onNavigate(path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-left transition-all duration-150 ${
-                    isActive
-                      ? 'bg-brand text-white shadow-lg shadow-brand/20'
-                      : 'text-white/55 hover:bg-white/8 hover:text-white'
-                  }`}
+                  className={`jz-nav-item ${isActive ? 'active' : ''}`}
                 >
                   <span className="shrink-0"><Icon /></span>
                   <span className="truncate">{label}</span>
@@ -125,10 +119,10 @@ function NavContent({ groups, activeId, onNavigate, onLogout }) {
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-white/8 space-y-0.5">
+      <div className="px-3.5 py-4 border-t border-white/8">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-white/55 hover:bg-danger/15 hover:text-danger transition-all"
+          className="jz-nav-item logout"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
@@ -167,18 +161,18 @@ export default function AdminSidebar({ open, onClose }) {
   return (
     <>
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-60 bg-sidebar flex-col z-40">
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[250px] jz-sidebar flex-col z-40">
         {/* Logo */}
-        <div className="px-6 py-5 border-b border-white/8 shrink-0">
+        <div className="px-5 pt-6 pb-5 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center shrink-0">
+            <div className="jz-brand-mark">
               <svg width="16" height="16" viewBox="0 0 99 90" fill="white">
                 <path d="M63 0H76L63.271 15.5L79 22L99 67L88.5 63L57.933 22L2.5 89.5H0L63 0Z"/>
               </svg>
             </div>
             <div>
-              <p className="text-white font-black text-sm leading-none">Jashanz</p>
-              <p className="text-white/40 text-[10px] mt-0.5 uppercase tracking-wider">Admin Portal</p>
+              <p className="text-white font-bold text-base leading-none" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Jashanz</p>
+              <p className="text-[10.5px] mt-1 tracking-[.08em] uppercase" style={{ color: "var(--ink-faint)" }}>Admin Portal</p>
             </div>
           </div>
         </div>
@@ -194,7 +188,7 @@ export default function AdminSidebar({ open, onClose }) {
 
       {/* Drawer */}
       <div
-        className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar rounded-t-3xl transition-transform duration-300 ease-out ${open ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 jz-sidebar rounded-t-3xl transition-transform duration-300 ease-out ${open ? 'translate-y-0' : 'translate-y-full'}`}
         style={{ maxHeight: '82vh' }}
       >
         {/* Pull handle */}

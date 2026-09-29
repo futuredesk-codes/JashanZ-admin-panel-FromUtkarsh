@@ -1,0 +1,30 @@
+/* Finance portal light theme — scoped to .jz-finance so other portals are untouched. */
+.jz-finance{
+  --bg:#f3f5fa; --card:#fff; --border:#e7eaf2; --border-hi:#d9dee9;
+  --ink:#1c2333; --ink-dim:#667085; --ink-faint:#98a2b3;
+  --orange:#f5a623; --blue:#2ea6e0; --blue-dk:#1c8fc7;
+  font-family:'Inter',system-ui,sans-serif; color:var(--ink); background:var(--bg);
+}
+.jz-finance .bg-canvas{background:var(--bg);}
+.jz-fin-sidebar{background:linear-gradient(180deg,#0b0f1e,#070a14);}
+.jz-fin-brand{width:36px;height:36px;border-radius:10px;background:linear-gradient(145deg,#f5a623,#ff8a3d);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px -6px rgba(245,166,35,.5);flex-shrink:0;}
+.jz-fin-nav{display:flex;align-items:center;gap:11px;width:100%;padding:10px 12px;border-radius:10px;color:#a7afc7;font-size:13.5px;font-weight:500;text-align:left;margin-bottom:3px;transition:background .15s,color .15s;background:none;border:0;cursor:pointer;}
+.jz-fin-nav:hover{background:rgba(255,255,255,.05);color:#fff;}
+.jz-fin-nav.active{background:linear-gradient(135deg,#f5a623,#ff8a3d);color:#fff;box-shadow:0 8px 18px -8px rgba(245,166,35,.5);}
+.jz-fin-nav.logout:hover{background:rgba(239,68,68,.15);color:#ff9fb2;}
+.jz-fin-topbar{background:#fff;border-bottom:1px solid var(--border);}
+.jz-fin-avatar{width:32px;height:32px;border-radius:9px;background:linear-gradient(145deg,#f5a623,#ff8a3d);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;flex-shrink:0;}
+
+/* content — cards, tables, buttons, inputs to match the design */
+.jz-finance h1,.jz-finance h2{letter-spacing:-.01em;}
+.jz-finance main .bg-white{border-radius:14px;}
+.jz-finance main .rounded-2xl{border-radius:14px;}
+.jz-finance main .border-slate-100{border-color:var(--border);}
+.jz-finance main .bg-white.border{box-shadow:0 1px 2px rgba(20,20,43,.03);}
+.jz-finance thead th{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:var(--ink-faint);}
+.jz-finance tbody tr:hover{background:#fafbfd;}
+.jz-finance .bg-brand{background:var(--blue);}
+.jz-finance .bg-brand:hover,.jz-finance .hover\:bg-brand\/90:hover,.jz-finance .hover\:bg-brand-dark:hover{background:var(--blue-dk);}
+.jz-finance .text-brand{color:var(--blue);}
+.jz-finance .bg-brand\/8,.jz-finance .bg-brand\/10{background:#e7f4fb;}
+.jz-finance input:focus,.jz-finance select:focus{border-color:var(--blue);}

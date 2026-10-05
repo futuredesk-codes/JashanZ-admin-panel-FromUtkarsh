@@ -7,6 +7,7 @@ import { getPlatformAnalytics } from '../../api/analytics'
 import { getTutorialVideo, setTutorialVideo } from '../../api/config'
 import { youtubeId, youtubeThumb, youtubeEmbed } from '../../utils/youtube'
 import { useAdminAuth } from '../../context/AdminAuthContext'
+import { useTheme } from '../../context/ThemeContext'
 
 const CATEGORY_COLORS = ['#3BBDF7','#28aae2','#10b981','#f59e0b','#8b5cf6','#6b7280']
 
@@ -35,7 +36,7 @@ function StatCard({ label, value, sub, color = 'brand', icon }) {
 function SectionTitle({ title, sub }) {
   return (
     <div className="mb-4">
-      <h3 className="text-[17px] font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>{title}</h3>
+      <h3 className="jz-text-strong text-[17px] font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>{title}</h3>
       {sub && <p className="text-[13px] mt-1" style={{ color: "var(--ink-dim)" }}>{sub}</p>}
     </div>
   )
@@ -186,11 +187,26 @@ function TutorialVideoCard() {
 
 export default function DashboardPage() {
   const { auth } = useAdminAuth()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
     getPlatformAnalytics().then(setStats).catch(() => {})
   }, [])
+
+  // Recharts takes raw colors, not CSS classes — these can't piggyback on the
+  // .jz-admin/.jz-dark remap system the rest of the page uses, so they're
+  // branched directly off the theme here instead.
+  const chartGrid = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'
+  const chartTick = isDark ? '#A6ADC3' : '#64748b'
+  const chartTooltipStyle = {
+    borderRadius: 10,
+    border: isDark ? '1px solid rgba(255,255,255,0.16)' : '1px solid #e2e8f0',
+    background: isDark ? '#121A30' : '#ffffff',
+    color: isDark ? '#F2F4FA' : '#0f172a',
+    fontSize: 12,
+  }
 
   const pct = (n, total) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '—'
 
@@ -215,15 +231,15 @@ export default function DashboardPage() {
       {/* Welcome banner */}
       <div className="jz-panel flex items-center justify-between flex-wrap gap-3">
         <div>
-          <p className="text-white/50 text-xs font-semibold mb-1">Good morning,</p>
-          <h2 className="text-white text-xl font-black">{auth?.username || 'Admin'}</h2>
+          <p className="jz-text-muted text-xs font-semibold mb-1">Good morning,</p>
+          <h2 className="jz-text-strong text-xl font-black">{auth?.username || 'Admin'}</h2>
           <p className="text-sm" style={{ color: "var(--ink-dim)" }}>Here's your platform overview</p>
         </div>
         <div className="flex gap-2">
           <a href="/admin/reports" className="bg-brand text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-brand-dark transition-colors">
             View Reports
           </a>
-          <a href="/admin/audit" className="bg-white/10 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-white/15 transition-colors">
+          <a href="/admin/audit" className="jz-btn-ghost text-xs font-bold px-4 py-2 rounded-xl transition-colors">
             Audit Logs
           </a>
         </div>
@@ -236,7 +252,7 @@ export default function DashboardPage() {
       <div className="jz-panel">
         <div className="flex items-center gap-3.5 mb-5">
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#FF6FB0,#B15CFF)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.users}</span>
-          <p className="text-lg font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Users</p>
+          <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Users</p>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <StatCard label="Total Customers" value={stats?.totalUsers ?? '—'} sub="All registered" color="brand" icon={I.users} />
@@ -249,7 +265,7 @@ export default function DashboardPage() {
       <div className="jz-panel">
         <div className="flex items-center gap-3.5 mb-5">
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#3E7BFA,#7C5CFF)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.biz}</span>
-          <p className="text-lg font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Businesses</p>
+          <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Businesses</p>
         </div>
         <div className="grid grid-cols-4 gap-3">
           <StatCard label="Total Businesses" value={stats?.totalBusinesses ?? '—'} sub="All registered" color="brand" icon={I.biz} />
@@ -263,7 +279,7 @@ export default function DashboardPage() {
       <div className="jz-panel">
         <div className="flex items-center gap-3.5 mb-5">
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#34D5FF,#3E7BFA)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.creator}</span>
-          <p className="text-lg font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Creators</p>
+          <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Creators</p>
         </div>
         <div className="grid grid-cols-4 gap-3">
           <StatCard label="Total Creators" value={stats?.totalCreators ?? '—'} sub="All registered" color="brand" icon={I.creator} />
@@ -277,7 +293,7 @@ export default function DashboardPage() {
       <div className="jz-panel">
         <div className="flex items-center gap-3.5 mb-5">
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#12D19A,#22B8CF)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.book}</span>
-          <p className="text-lg font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Bookings</p>
+          <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Bookings</p>
         </div>
         <div className="grid grid-cols-5 gap-3">
           <StatCard label="Total Bookings" value={stats?.totalBookings ?? '—'} sub="All time" color="brand" icon={I.book} />
@@ -292,7 +308,7 @@ export default function DashboardPage() {
       <div className="jz-panel">
         <div className="flex items-center gap-3.5 mb-5">
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#FFB020,#FF7A45)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.rev}</span>
-          <p className="text-lg font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Revenue</p>
+          <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Revenue</p>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <StatCard
@@ -312,7 +328,7 @@ export default function DashboardPage() {
       <div className="jz-panel">
         <div className="flex items-center gap-3.5 mb-5">
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#34D5FF,#7C5CFF)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.tick}</span>
-          <p className="text-lg font-semibold text-white" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Support Overview</p>
+          <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Support Overview</p>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <StatCard label="Pending Approvals" value={stats?.pendingBusinesses ?? '—'} sub="Vendor onboarding" color="warning" icon={I.tick} />
@@ -327,10 +343,10 @@ export default function DashboardPage() {
           {!stats?.monthlyRevenue?.length ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={stats.monthlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} tickFormatter={fmt} width={55} />
-                <Tooltip formatter={(v, n) => [fmt(v), n === 'commission' ? 'Commission' : 'Recharge']} contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: '#121A30', color: '#F2F4FA', fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} tickFormatter={fmt} width={55} />
+                <Tooltip formatter={(v, n) => [fmt(v), n === 'commission' ? 'Commission' : 'Recharge']} contentStyle={chartTooltipStyle} />
                 <Line type="monotone" dataKey="commission" stroke="#3BBDF7" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Line type="monotone" dataKey="recharge" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
@@ -344,10 +360,10 @@ export default function DashboardPage() {
           {!stats?.monthlyBookings?.length ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={stats.monthlyBookings} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} width={40} />
-                <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: '#121A30', color: '#F2F4FA', fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} width={40} />
+                <Tooltip contentStyle={chartTooltipStyle} />
                 <Line type="monotone" dataKey="total" stroke="#3BBDF7" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Line type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Line type="monotone" dataKey="cancelled" stroke="#ef4444" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
@@ -368,7 +384,7 @@ export default function DashboardPage() {
                   <Pie data={bookingStatusChartData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
                     {bookingStatusChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => [fmtN(v), '']} contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: '#121A30', color: '#F2F4FA', fontSize: 12 }} />
+                  <Tooltip formatter={(v) => [fmtN(v), '']} contentStyle={chartTooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-1.5 mt-2">
@@ -392,7 +408,7 @@ export default function DashboardPage() {
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value">
                     {categoryData.map((_, i) => <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: '#121A30', color: '#F2F4FA', fontSize: 12 }} />
+                  <Tooltip contentStyle={chartTooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-1 mt-2">
@@ -412,10 +428,10 @@ export default function DashboardPage() {
           {!cityData.length ? <EmptyChart height={280} /> : (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={cityData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#A6ADC3' }} axisLine={false} tickLine={false} tickFormatter={fmt} />
-                <YAxis type="category" dataKey="city" tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} width={65} />
-                <Tooltip formatter={v => [fmt(v), 'Revenue']} contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: '#121A30', color: '#F2F4FA', fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: chartTick }} axisLine={false} tickLine={false} tickFormatter={fmt} />
+                <YAxis type="category" dataKey="city" tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} width={65} />
+                <Tooltip formatter={v => [fmt(v), 'Revenue']} contentStyle={chartTooltipStyle} />
                 <Bar dataKey="revenue" fill="#3BBDF7" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -428,10 +444,10 @@ export default function DashboardPage() {
         {!cityData.length ? <EmptyChart height={240} /> : (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={cityData} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-              <XAxis dataKey="city" tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#A6ADC3' }} axisLine={false} tickLine={false} width={40} />
-              <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: '#121A30', color: '#F2F4FA', fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGrid} />
+              <XAxis dataKey="city" tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: chartTick }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip contentStyle={chartTooltipStyle} />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
               <Bar dataKey="businesses" name="Businesses" fill="#3BBDF7" radius={[4, 4, 0, 0]} />
               <Bar dataKey="bookings" name="Bookings" fill="#10b981" radius={[4, 4, 0, 0]} />

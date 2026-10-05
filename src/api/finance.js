@@ -28,6 +28,10 @@ export const setFinanceGlobalCommissionRate = (rate) =>
   api.post("/finance/commission-rate/global", { rate });
 export const setFinanceVendorCommissionRate = (businessId, rate) =>
   api.post(`/finance/commission-rate/vendor/${businessId}`, { rate });
+export const getFinanceRegistrationFeeRates = () =>
+  api.get("/finance/registration-fee-rates");
+export const setFinanceVendorRegistrationFee = (businessId, fee) =>
+  api.post(`/finance/registration-fee/vendor/${businessId}`, { fee });
 export const getRefundablePayments = (params) =>
   api.get("/finance/refunds/payments", params);
 export const getRefunds = (params) => api.get("/finance/refunds", params);

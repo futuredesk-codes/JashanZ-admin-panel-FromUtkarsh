@@ -16,6 +16,7 @@ import {
 import { ThemeProvider } from "./context/ThemeContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PagePermissionGuard from "./components/PagePermissionGuard";
+import SubdomainGuard from "./components/SubdomainGuard";
 
 import AdminLoginPage from "./pages/admin/LoginPage";
 import AdminDashboard from "./pages/admin/DashboardPage";
@@ -99,18 +100,20 @@ function AppRoutes() {
       <Route path="/" element={<RootRedirect />} />
 
       {/* ── Admin Portal ── */}
-      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin/login" element={<SubdomainGuard portal="admin"><AdminLoginPage /></SubdomainGuard>} />
 
       <Route
         path="/admin"
         element={
-          <ProtectedRoute
-            auth={adminAuth}
-            roles={["SUPER_ADMIN", "ADMIN"]}
-            redirectTo="/admin/login"
-          >
-            <AdminLayout />
-          </ProtectedRoute>
+          <SubdomainGuard portal="admin">
+            <ProtectedRoute
+              auth={adminAuth}
+              roles={["SUPER_ADMIN", "ADMIN"]}
+              redirectTo="/admin/login"
+            >
+              <AdminLayout />
+            </ProtectedRoute>
+          </SubdomainGuard>
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -236,18 +239,20 @@ function AppRoutes() {
       </Route>
 
       {/* ── Support Portal ── */}
-      <Route path="/support/login" element={<SupportLoginPage />} />
+      <Route path="/support/login" element={<SubdomainGuard portal="support"><SupportLoginPage /></SubdomainGuard>} />
 
       <Route
         path="/support"
         element={
-          <ProtectedRoute
-            auth={supportAuth}
-            roles={SUPPORT_ROLES}
-            redirectTo="/support/login"
-          >
-            <SupportLayout />
-          </ProtectedRoute>
+          <SubdomainGuard portal="support">
+            <ProtectedRoute
+              auth={supportAuth}
+              roles={SUPPORT_ROLES}
+              redirectTo="/support/login"
+            >
+              <SupportLayout />
+            </ProtectedRoute>
+          </SubdomainGuard>
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -314,18 +319,20 @@ function AppRoutes() {
       </Route>
 
       {/* ── Finance Portal ── */}
-      <Route path="/finance/login" element={<FinanceLoginPage />} />
+      <Route path="/finance/login" element={<SubdomainGuard portal="finance"><FinanceLoginPage /></SubdomainGuard>} />
 
       <Route
         path="/finance"
         element={
-          <ProtectedRoute
-            auth={financeAuth}
-            roles={FINANCE_ROLES}
-            redirectTo="/finance/login"
-          >
-            <FinanceLayout />
-          </ProtectedRoute>
+          <SubdomainGuard portal="finance">
+            <ProtectedRoute
+              auth={financeAuth}
+              roles={FINANCE_ROLES}
+              redirectTo="/finance/login"
+            >
+              <FinanceLayout />
+            </ProtectedRoute>
+          </SubdomainGuard>
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -406,18 +413,20 @@ function AppRoutes() {
       </Route>
 
       {/* ── AdManager Portal ── */}
-      <Route path="/admanager/login" element={<AdManagerLoginPage />} />
+      <Route path="/admanager/login" element={<SubdomainGuard portal="admanager"><AdManagerLoginPage /></SubdomainGuard>} />
 
       <Route
         path="/admanager"
         element={
-          <ProtectedRoute
-            auth={admanagerAuth}
-            roles={ADMANAGER_ROLES}
-            redirectTo="/admanager/login"
-          >
-            <AdManagerLayout />
-          </ProtectedRoute>
+          <SubdomainGuard portal="admanager">
+            <ProtectedRoute
+              auth={admanagerAuth}
+              roles={ADMANAGER_ROLES}
+              redirectTo="/admanager/login"
+            >
+              <AdManagerLayout />
+            </ProtectedRoute>
+          </SubdomainGuard>
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />

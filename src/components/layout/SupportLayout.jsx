@@ -2,7 +2,9 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useSupportAuth } from '../../context/SupportAuthContext'
 import { PermissionsProvider, usePermissions } from '../../context/PermissionsContext'
 import { StaffProfileProvider, useStaffProfile } from '../../context/StaffProfileContext'
+import { useTheme } from '../../context/ThemeContext'
 import NotificationBell from '../NotificationBell'
+import ThemeToggle from '../ThemeToggle'
 import './support-theme.css'
 
 const NAV = [
@@ -28,6 +30,7 @@ function SupportLayoutInner() {
   const { auth, logout } = useSupportAuth()
   const { can } = usePermissions()
   const { profile } = useStaffProfile()
+  const { theme } = useTheme()
   const visibleNav = NAV.filter(n => can(n.pageId, 'READ'))
   const activeId = visibleNav.find(n => pathname.startsWith(n.path))?.id ?? ''
   const title = TITLES[pathname] ?? 'Support Portal'
@@ -41,7 +44,7 @@ function SupportLayoutInner() {
   }
 
   return (
-    <div className="jz-support flex h-screen overflow-hidden">
+    <div className={`jz-support ${theme === 'dark' ? 'jz-dark' : ''} flex h-screen overflow-hidden`}>
       <aside className="fixed left-0 top-0 h-screen w-[264px] jz-sup-sidebar flex flex-col z-40">
         <div className="px-[22px] pt-[26px] pb-[22px] border-b" style={{ borderColor: "var(--border-soft)" }}>
           <div className="flex items-center gap-3">
@@ -49,8 +52,8 @@ function SupportLayoutInner() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#04140e" strokeWidth="2.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.81 19.79 19.79 0 01.63 2.18 2 2 0 012.62.01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.6a16 16 0 006.29 6.29l.96-.96a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
             </div>
             <div>
-              <p className="text-white font-bold text-[17px] leading-none" style={{ fontFamily: "Outfit, sans-serif" }}>Jashanz</p>
-              <p className="text-[10.5px] mt-1 uppercase font-semibold tracking-[1.6px]" style={{ color: "var(--text-dim)" }}>Support Portal</p>
+              <p className="jz-sidebar-brand font-bold text-[17px] leading-none" style={{ fontFamily: "Outfit, sans-serif" }}>Jashanz</p>
+              <p className="jz-sidebar-sub text-[10.5px] mt-1 uppercase font-semibold tracking-[1.6px]">Support Portal</p>
             </div>
           </div>
         </div>
@@ -74,14 +77,15 @@ function SupportLayoutInner() {
 
       <div className="flex-1 flex flex-col ml-[264px] min-w-0 overflow-hidden">
         <header className="jz-sup-topbar sticky top-0 z-30 px-8 h-[73px] flex items-center gap-4 shrink-0">
-          <h1 className="flex-1 text-lg font-bold text-white" style={{ fontFamily: "Outfit, sans-serif" }}>{title}</h1>
+          <h1 className="jz-header-title flex-1 text-lg font-bold" style={{ fontFamily: "Outfit, sans-serif" }}>{title}</h1>
+          <ThemeToggle />
           <NotificationBell />
-          <button onClick={() => navigate('/support/profile')} className="jz-sup-who hover:bg-white/5 transition-colors" title="My profile">
+          <button onClick={() => navigate('/support/profile')} className="jz-sup-who transition-colors" title="My profile">
             {profile?.profileImg
               ? <img src={profile.profileImg} alt={displayName} className="w-8 h-8 rounded-full object-cover shrink-0" />
               : <div className="jz-sup-avatar">{initials}</div>}
             <div className="text-left">
-              <p className="text-[13px] font-semibold text-white leading-tight">{displayName}</p>
+              <p className="jz-header-name text-[13px] font-semibold leading-tight">{displayName}</p>
               <p className="text-[10px] font-semibold tracking-[.6px]" style={{ color: "var(--text-dim)" }}>{auth?.role ?? ''}</p>
             </div>
           </button>

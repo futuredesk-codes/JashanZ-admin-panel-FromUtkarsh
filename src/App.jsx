@@ -13,6 +13,7 @@ import {
   AdManagerAuthProvider,
   useAdManagerAuth,
 } from "./context/AdManagerAuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PagePermissionGuard from "./components/PagePermissionGuard";
 
@@ -437,14 +438,16 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AdminAuthProvider>
-      <FinanceAuthProvider>
-        <SupportAuthProvider>
-          <AdManagerAuthProvider>
-            <AppRoutes />
-          </AdManagerAuthProvider>
-        </SupportAuthProvider>
-      </FinanceAuthProvider>
-    </AdminAuthProvider>
+    <ThemeProvider>
+      <AdminAuthProvider>
+        <FinanceAuthProvider>
+          <SupportAuthProvider>
+            <AdManagerAuthProvider>
+              <AppRoutes />
+            </AdManagerAuthProvider>
+          </SupportAuthProvider>
+        </FinanceAuthProvider>
+      </AdminAuthProvider>
+    </ThemeProvider>
   );
 }

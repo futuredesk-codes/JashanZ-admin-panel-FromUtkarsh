@@ -119,7 +119,7 @@ function NavContent({ groups, activeId, onNavigate, onLogout }) {
         ))}
       </nav>
 
-      <div className="px-3.5 py-4 border-t border-white/8">
+      <div className="jz-sidebar-divider px-3.5 py-4 border-t">
         <button
           onClick={onLogout}
           className="jz-nav-item logout"
@@ -171,7 +171,7 @@ export default function AdminSidebar({ open, onClose }) {
               </svg>
             </div>
             <div>
-              <p className="text-white font-bold text-base leading-none" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Jashanz</p>
+              <p className="jz-sidebar-brand font-bold text-base leading-none" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Jashanz</p>
               <p className="text-[10.5px] mt-1 tracking-[.08em] uppercase" style={{ color: "var(--ink-faint)" }}>Admin Portal</p>
             </div>
           </div>
@@ -193,11 +193,11 @@ export default function AdminSidebar({ open, onClose }) {
       >
         {/* Pull handle */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 bg-white/25 rounded-full" />
+          <div className="jz-sidebar-pull w-10 h-1 rounded-full" />
         </div>
 
         {/* Logo row in drawer */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/8 shrink-0">
+        <div className="jz-sidebar-divider flex items-center justify-between px-5 py-3 border-b shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-brand rounded-lg flex items-center justify-center shrink-0">
               <svg width="13" height="13" viewBox="0 0 99 90" fill="white">
@@ -205,13 +205,13 @@ export default function AdminSidebar({ open, onClose }) {
               </svg>
             </div>
             <div>
-              <p className="text-white font-black text-sm leading-none">Jashanz</p>
-              <p className="text-white/40 text-[10px] uppercase tracking-wider">Admin Portal</p>
+              <p className="jz-sidebar-brand font-black text-sm leading-none">Jashanz</p>
+              <p className="jz-sidebar-sub text-[10px] uppercase tracking-wider">Admin Portal</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+            className="jz-sidebar-close w-8 h-8 rounded-full flex items-center justify-center transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

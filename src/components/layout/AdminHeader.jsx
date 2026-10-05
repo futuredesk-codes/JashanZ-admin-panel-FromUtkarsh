@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../../context/AdminAuthContext'
 import { useStaffProfile } from '../../context/StaffProfileContext'
 import NotificationBell from '../NotificationBell'
+import ThemeToggle from '../ThemeToggle'
 
 const TITLES = {
   '/admin/dashboard':     'Dashboard',
@@ -32,7 +33,7 @@ export default function AdminHeader({ onMenuClick }) {
       {/* Hamburger — mobile only */}
       <button
         onClick={onMenuClick}
-        className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors shrink-0"
+        className="jz-icon-btn lg:hidden w-9 h-9 flex items-center justify-center rounded-lg transition-colors shrink-0"
         style={{ color: 'var(--ink-dim)' }}
         aria-label="Open menu"
       >
@@ -43,7 +44,7 @@ export default function AdminHeader({ onMenuClick }) {
         </svg>
       </button>
 
-      <h1 className="md:hidden flex-1 min-w-0 text-sm font-bold truncate text-white">{title}</h1>
+      <h1 className="jz-header-title md:hidden flex-1 min-w-0 text-sm font-bold truncate">{title}</h1>
 
       {/* Search — hidden on mobile */}
       <div className="jz-search hidden md:flex">
@@ -69,6 +70,9 @@ export default function AdminHeader({ onMenuClick }) {
           </a>
         </div>
 
+        {/* Theme toggle */}
+        <ThemeToggle />
+
         {/* Notifications */}
         <NotificationBell />
 
@@ -78,7 +82,7 @@ export default function AdminHeader({ onMenuClick }) {
             ? <img src={profile.profileImg} alt={displayName} className="w-[30px] h-[30px] rounded-[9px] object-cover shrink-0" />
             : <div className="av">{initials}</div>}
           <div className="hidden sm:block text-left">
-            <p className="text-[13px] font-semibold leading-tight text-white">{displayName}</p>
+            <p className="jz-header-name text-[13px] font-semibold leading-tight">{displayName}</p>
             <p className="text-[10px] leading-tight" style={{ color: 'var(--ink-faint)' }}>{auth?.role || ''}</p>
           </div>
         </button>

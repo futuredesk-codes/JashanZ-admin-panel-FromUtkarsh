@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getPricing, updateFee, updateSubscriptionPlanPrice, getWalletTransactions, deleteTransaction } from '../../api/finance'
+import { getPricing, updateFee, updateSubscriptionPlanPrice, getWalletTransactions, deleteTransaction, getFinanceRegistrationFeeRates, setFinanceVendorRegistrationFee } from '../../api/finance'
 import { ApiError } from '../../api/client'
+import { usePermissions } from '../../context/PermissionsContext'
+import SearchableSelect from '../../components/SearchableSelect'
 
 const IconEye = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 const IconTrash = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -101,6 +103,140 @@ function FeeEditor({ label, keyName, valueInPaise, onSaved }) {
           <button onClick={startEdit} className="text-xs font-bold text-brand hover:underline">Edit</button>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ── Modal: every business's resolved registration fee (override or global) ── */
+function AllFeesModal({ data, onClose }) {
+  const [search, setSearch] = useState('')
+
+  const globalRupees = ((data?.globalFee ?? 0) / 100).toFixed(2)
+  const vendors = (data?.vendors || [])
+    .filter(v => v.username.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.username.localeCompare(b.username))
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800 text-sm">All Businesses — Registration Fee</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">Global fee: ₹{globalRupees} — applies unless overridden below.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="px-6 pt-4 pb-2 shrink-0">
+          <input
+            type="text"
+            placeholder="Search business…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+          />
+        </div>
+        <div className="overflow-y-auto px-6 pb-6">
+          {vendors.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">No businesses match.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {vendors.map(v => (
+                <div key={v.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm font-semibold text-slate-700">{v.username}</span>
+                  {v.customFee !== null ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
+                      ₹{(v.customFee / 100).toFixed(2)} <span className="text-brand/60 font-semibold">(override)</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">₹{globalRupees} <span className="text-slate-300">(global)</span></span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Per-business Registration Fee override (FULL access only) ── */
+function RegistrationFeeOverrideCard() {
+  const [data, setData] = useState(null)
+  const [vendorId, setVendorId] = useState('')
+  const [vendorFee, setVendorFee] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [error, setError] = useState('')
+  const [showAll, setShowAll] = useState(false)
+
+  const load = useCallback(() => {
+    getFinanceRegistrationFeeRates()
+      .then(setData)
+      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load registration fee rates.'))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const flash = t => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
+
+  const save = async (clear = false) => {
+    if (!vendorId) return
+    const rupees = clear ? null : Number(vendorFee)
+    if (!clear && (Number.isNaN(rupees) || rupees <= 0)) { setError('Enter a valid amount.'); return }
+    setSaving(true); setError('')
+    try {
+      await setFinanceVendorRegistrationFee(vendorId, clear ? null : Math.round(rupees * 100))
+      flash(clear ? 'Vendor override cleared.' : 'Vendor fee set.')
+      setVendorFee('')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save vendor fee.')
+    } finally { setSaving(false) }
+  }
+
+  const customVendors = (data?.vendors || []).filter(v => v.customFee !== null)
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-black text-slate-800 text-sm">Per-Business Registration Fee Override</h3>
+          <p className="text-xs text-slate-400 mt-0.5">The global fee above applies to every business unless a per-business override is set here. A new order uses whichever fee is live at creation time.</p>
+        </div>
+        <button onClick={() => setShowAll(true)} className="shrink-0 text-xs font-bold text-brand hover:underline whitespace-nowrap">View All</button>
+      </div>
+
+      {error && <p className="text-xs text-danger font-semibold">{error}</p>}
+      {msg && <p className="text-xs text-success font-semibold">{msg}</p>}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchableSelect
+          value={vendorId}
+          onChange={v => { setVendorId(v); const found = data?.vendors.find(x => x.id === v); setVendorFee(found?.customFee != null ? (found.customFee / 100).toFixed(2) : '') }}
+          options={(data?.vendors || []).map(v => ({ value: v.id, label: `${v.username}${v.customFee != null ? ` — ₹${(v.customFee / 100).toFixed(2)}` : ''}` }))}
+          placeholder="Select business…"
+          buttonClassName="min-w-52"
+        />
+        <span className="text-slate-400 text-sm font-bold">₹</span>
+        <input type="number" min="1" step="1" placeholder="Amount" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 w-28" value={vendorFee} onChange={e => setVendorFee(e.target.value)} />
+        <button onClick={() => save(false)} disabled={saving || !vendorId} className="bg-brand text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-brand/90 disabled:opacity-40">Set</button>
+        <button onClick={() => save(true)} disabled={saving || !vendorId} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200 disabled:opacity-40">Clear</button>
+      </div>
+
+      {customVendors.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {customVendors.map(v => (
+            <span key={v.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
+              {v.username}: ₹{(v.customFee / 100).toFixed(2)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {showAll && <AllFeesModal data={data} onClose={() => setShowAll(false)} />}
     </div>
   )
 }
@@ -211,6 +347,9 @@ function TransactionDetailModal({ transaction, onClose }) {
 }
 
 export default function RechargeManagementPage() {
+  const { can } = usePermissions()
+  const canEditRates = can('financeRecharge', 'FULL')
+
   const [pricing, setPricing] = useState(null)
   const [pricingLoading, setPricingLoading] = useState(true)
   const [pricingError, setPricingError] = useState('')
@@ -284,6 +423,10 @@ export default function RechargeManagementPage() {
               <FeeEditor label="AdManager Access Fee" keyName="adManagerFee" valueInPaise={pricing.adManagerFee} onSaved={loadPricing} />
             </div>
           </div>
+
+          {canEditRates
+            ? <RegistrationFeeOverrideCard />
+            : <p className="text-xs text-slate-400">Per-business fee overrides need full access on this page — ask a Finance Admin.</p>}
 
           <div>
             <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Inquiry-Unlock Subscription Plans</p>

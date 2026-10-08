@@ -22,3 +22,9 @@ export const createTicket = (payload) => api.post('/support/ticket/create', payl
 export const getMyTickets = (page = 1, limit = 10, status) =>
   api.get('/support/ticket/my', { page, limit, status })
 export const getMyTicket = (ticketId) => api.get(`/support/ticket/${ticketId}`)
+
+/* ── Push Notifications (broadcast to all Users/Businesses/Creators with a
+   registered push token) ── */
+export const sendBroadcast = (audience, title, body) =>
+  api.post('/support/broadcast/send', { audience, title, body })
+export const getBroadcastHistory = (params) => api.get('/support/broadcast/history', params)

@@ -504,7 +504,7 @@ export default function CirclesPage() {
           {circles.map(circle => (
             <div key={circle._id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
               <div className="relative">
-                <img src={circle.coverImage || FALLBACK_IMG} alt={circle.name} className="w-full h-36 object-cover" />
+                <img src={circle.coverImage || circle.coverMedia?.[0]?.url || FALLBACK_IMG} alt={circle.name} className="w-full h-36 object-cover" />
                 <span className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold ${circle.isActive ? 'bg-success/90 text-white' : 'bg-slate-500/90 text-white'}`}>
                   {circle.isActive ? 'Active' : 'Inactive'}
                 </span>

@@ -13,6 +13,7 @@ const NAV = [
   { id: 'ads', pageId: 'supportAds', label: 'Ad Review', path: '/support/ads', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg> },
   { id: 'tickets', pageId: 'tickets', label: 'Ticket Management', path: '/support/tickets', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h14a2 2 0 012 2v3a2 2 0 000 4v3a2 2 0 01-2 2H5a2 2 0 01-2-2v-3a2 2 0 000-4V7a2 2 0 012-2z"/></svg> },
   { id: 'admanager', pageId: 'tickets', label: 'AdManager Requests', path: '/support/admanager-requests', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg> },
+  { id: 'broadcast', pageId: 'supportBroadcast', label: 'Push Notifications', path: '/support/broadcast', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> },
 ]
 
 const TITLES = {
@@ -21,6 +22,7 @@ const TITLES = {
   '/support/ads':       'Ad Review & Moderation',
   '/support/tickets':   'Ticket Management',
   '/support/admanager-requests': 'AdManager Requests',
+  '/support/broadcast': 'Push Notifications',
   '/support/profile':   'My Profile',
 }
 

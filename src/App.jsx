@@ -26,6 +26,7 @@ import SupportLoginPage from "./pages/support/LoginPage";
 import SupportLayout from "./components/layout/SupportLayout";
 import SupportDashboardPage from "./pages/support/DashboardPage";
 import SupportTicketsPage from "./pages/support/TicketsPage";
+import SupportBroadcastPage from "./pages/support/BroadcastPage";
 import SupportVendorApprovalsPage from "./pages/support/VendorApprovalsPage";
 import SupportAdReviewPage from "./pages/support/AdReviewPage";
 
@@ -311,6 +312,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="supportCircles">
               <PlaceholderPage title="Event Circles" />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="broadcast"
+          element={
+            <PagePermissionGuard pageId="supportBroadcast">
+              <SupportBroadcastPage />
             </PagePermissionGuard>
           }
         />

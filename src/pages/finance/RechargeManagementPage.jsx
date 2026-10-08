@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getPricing, updateFee, updateSubscriptionPlanPrice, getWalletTransactions, deleteTransaction, getFinanceRegistrationFeeRates, setFinanceVendorRegistrationFee } from '../../api/finance'
+import { getPricing, updateFee, updateSubscriptionPlanPrice, getWalletTransactions, deleteTransaction, getFinanceRegistrationFeeRates, setFinanceCategoryRegistrationFee } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import { usePermissions } from '../../context/PermissionsContext'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -107,21 +107,21 @@ function FeeEditor({ label, keyName, valueInPaise, onSaved }) {
   )
 }
 
-/* ── Modal: every business's resolved registration fee (override or global) ── */
+/* ── Modal: every category's resolved registration fee (override or global) ── */
 function AllFeesModal({ data, onClose }) {
   const [search, setSearch] = useState('')
 
   const globalRupees = ((data?.globalFee ?? 0) / 100).toFixed(2)
-  const vendors = (data?.vendors || [])
-    .filter(v => v.username.toLowerCase().includes(search.toLowerCase()))
-    .sort((a, b) => a.username.localeCompare(b.username))
+  const categories = (data?.categories || [])
+    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <h3 className="font-black text-slate-800 text-sm">All Businesses — Registration Fee</h3>
+            <h3 className="font-black text-slate-800 text-sm">All Categories — Registration Fee</h3>
             <p className="text-[11px] text-slate-400 mt-0.5">Global fee: ₹{globalRupees} — applies unless overridden below.</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 shrink-0">
@@ -131,23 +131,23 @@ function AllFeesModal({ data, onClose }) {
         <div className="px-6 pt-4 pb-2 shrink-0">
           <input
             type="text"
-            placeholder="Search business…"
+            placeholder="Search category…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
           />
         </div>
         <div className="overflow-y-auto px-6 pb-6">
-          {vendors.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">No businesses match.</p>
+          {categories.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">No categories match.</p>
           ) : (
             <div className="divide-y divide-slate-100">
-              {vendors.map(v => (
-                <div key={v.id} className="flex items-center justify-between py-2.5">
-                  <span className="text-sm font-semibold text-slate-700">{v.username}</span>
-                  {v.customFee !== null ? (
+              {categories.map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm font-semibold text-slate-700">{c.name}</span>
+                  {c.customFee !== null ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
-                      ₹{(v.customFee / 100).toFixed(2)} <span className="text-brand/60 font-semibold">(override)</span>
+                      ₹{(c.customFee / 100).toFixed(2)} <span className="text-brand/60 font-semibold">(override)</span>
                     </span>
                   ) : (
                     <span className="text-xs text-slate-400">₹{globalRupees} <span className="text-slate-300">(global)</span></span>
@@ -162,11 +162,14 @@ function AllFeesModal({ data, onClose }) {
   )
 }
 
-/* ── Per-business Registration Fee override (FULL access only) ── */
+/* ── Per-Category Registration Fee override (FULL access only) ──
+   Categories are managed in Admin Panel -> Categories; this list always
+   reflects whatever's live there (active categories only) — nothing to
+   sync, a deleted category simply stops being returned by the API. */
 function RegistrationFeeOverrideCard() {
   const [data, setData] = useState(null)
-  const [vendorId, setVendorId] = useState('')
-  const [vendorFee, setVendorFee] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [categoryFee, setCategoryFee] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
@@ -183,28 +186,28 @@ function RegistrationFeeOverrideCard() {
   const flash = t => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
 
   const save = async (clear = false) => {
-    if (!vendorId) return
-    const rupees = clear ? null : Number(vendorFee)
+    if (!categoryId) return
+    const rupees = clear ? null : Number(categoryFee)
     if (!clear && (Number.isNaN(rupees) || rupees <= 0)) { setError('Enter a valid amount.'); return }
     setSaving(true); setError('')
     try {
-      await setFinanceVendorRegistrationFee(vendorId, clear ? null : Math.round(rupees * 100))
-      flash(clear ? 'Vendor override cleared.' : 'Vendor fee set.')
-      setVendorFee('')
+      await setFinanceCategoryRegistrationFee(categoryId, clear ? null : Math.round(rupees * 100))
+      flash(clear ? 'Category override cleared.' : 'Category fee set.')
+      setCategoryFee('')
       load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save vendor fee.')
+      setError(err instanceof ApiError ? err.message : 'Could not save category fee.')
     } finally { setSaving(false) }
   }
 
-  const customVendors = (data?.vendors || []).filter(v => v.customFee !== null)
+  const customCategories = (data?.categories || []).filter(c => c.customFee !== null)
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-black text-slate-800 text-sm">Per-Business Registration Fee Override</h3>
-          <p className="text-xs text-slate-400 mt-0.5">The global fee above applies to every business unless a per-business override is set here. A new order uses whichever fee is live at creation time.</p>
+          <h3 className="font-black text-slate-800 text-sm">Per-Category Registration Fee Override</h3>
+          <p className="text-xs text-slate-400 mt-0.5">The global fee above applies to every business unless its category has an override set here. A new business's registration order uses whichever fee (category override or global) is live at creation time.</p>
         </div>
         <button onClick={() => setShowAll(true)} className="shrink-0 text-xs font-bold text-brand hover:underline whitespace-nowrap">View All</button>
       </div>
@@ -214,23 +217,23 @@ function RegistrationFeeOverrideCard() {
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchableSelect
-          value={vendorId}
-          onChange={v => { setVendorId(v); const found = data?.vendors.find(x => x.id === v); setVendorFee(found?.customFee != null ? (found.customFee / 100).toFixed(2) : '') }}
-          options={(data?.vendors || []).map(v => ({ value: v.id, label: `${v.username}${v.customFee != null ? ` — ₹${(v.customFee / 100).toFixed(2)}` : ''}` }))}
-          placeholder="Select business…"
+          value={categoryId}
+          onChange={v => { setCategoryId(v); const found = data?.categories.find(x => x.id === v); setCategoryFee(found?.customFee != null ? (found.customFee / 100).toFixed(2) : '') }}
+          options={(data?.categories || []).map(c => ({ value: c.id, label: `${c.name}${c.customFee != null ? ` — ₹${(c.customFee / 100).toFixed(2)}` : ''}` }))}
+          placeholder="Select category…"
           buttonClassName="min-w-52"
         />
         <span className="text-slate-400 text-sm font-bold">₹</span>
-        <input type="number" min="1" step="1" placeholder="Amount" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 w-28" value={vendorFee} onChange={e => setVendorFee(e.target.value)} />
-        <button onClick={() => save(false)} disabled={saving || !vendorId} className="bg-brand text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-brand/90 disabled:opacity-40">Set</button>
-        <button onClick={() => save(true)} disabled={saving || !vendorId} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200 disabled:opacity-40">Clear</button>
+        <input type="number" min="1" step="1" placeholder="Amount" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 w-28" value={categoryFee} onChange={e => setCategoryFee(e.target.value)} />
+        <button onClick={() => save(false)} disabled={saving || !categoryId} className="bg-brand text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-brand/90 disabled:opacity-40">Set</button>
+        <button onClick={() => save(true)} disabled={saving || !categoryId} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200 disabled:opacity-40">Clear</button>
       </div>
 
-      {customVendors.length > 0 && (
+      {customCategories.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {customVendors.map(v => (
-            <span key={v.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
-              {v.username}: ₹{(v.customFee / 100).toFixed(2)}
+          {customCategories.map(c => (
+            <span key={c.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
+              {c.name}: ₹{(c.customFee / 100).toFixed(2)}
             </span>
           ))}
         </div>

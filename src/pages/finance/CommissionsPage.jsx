@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   getFinanceCommissions, getFinanceCommissionRates,
   setFinanceGlobalCommissionRate, setFinanceVendorCommissionRate,
+  getFinanceMarkupRates, setFinanceGlobalMarkupRate, setFinanceCategoryMarkupRate,
 } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import { usePermissions } from '../../context/PermissionsContext'
@@ -52,6 +53,8 @@ function openInvoice(c) {
     <div class="sec"><h2>Commission</h2><table>
       ${row('Booking Amount', fmtMoney(c.bookingAmount))}
       ${row('Platform Commission Rate', `${c.commissionRate}%`)}
+      ${row('Platform Commission', fmtMoney(c.commissionAmount))}
+      ${c.markupAmount > 0 ? row('Platform Markup', fmtMoney(c.markupAmount)) : ''}
       ${row('Platform Revenue (auto-calculated)', fmtMoney(c.platformRevenue))}
       <tr class="total"><td class="k">Settlement to Vendor</td><td class="v">${esc(fmtMoney(c.settlementToVendor))}</td></tr>
     </table></div>
@@ -71,6 +74,60 @@ function openInvoice(c) {
   w.document.close()
 }
 
+/* ── All Vendors modal for Commission Rates ── */
+function AllVendorRatesModal({ data, onClose }) {
+  const [search, setSearch] = useState('')
+
+  const vendors = (data?.vendors || [])
+    .filter(v => v.username.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.username.localeCompare(b.username))
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800 text-sm">All Vendors — Commission Rate</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">Global rate: {data?.globalRate ?? 0}% — applies unless overridden below.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="px-6 pt-4 pb-2 shrink-0">
+          <input
+            type="text"
+            placeholder="Search vendor…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+          />
+        </div>
+        <div className="overflow-y-auto px-6 pb-6">
+          {vendors.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">No vendors match.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {vendors.map(v => (
+                <div key={v.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm font-semibold text-slate-700">{v.username}</span>
+                  {v.customRate !== null ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
+                      {v.customRate}% <span className="text-brand/60 font-semibold">(override)</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">{data?.globalRate ?? 0}% <span className="text-slate-300">(global)</span></span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Commission Rates card (FULL access only) ── */
 function RatesCard() {
   const [data, setData] = useState(null)
@@ -81,6 +138,7 @@ function RatesCard() {
   const [savingVendor, setSavingVendor] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
+  const [showAll, setShowAll] = useState(false)
 
   const load = useCallback(() => {
     getFinanceCommissionRates()
@@ -124,9 +182,12 @@ function RatesCard() {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-      <div>
-        <h3 className="font-black text-slate-800 text-sm">Commission Rates</h3>
-        <p className="text-xs text-slate-400 mt-0.5">Global rate applies to every vendor unless a per-vendor override is set. New commissions use the rate live at the time a booking completes.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-black text-slate-800 text-sm">Commission Rates</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Global rate applies to every vendor unless a per-vendor override is set. New commissions use the rate live at the time a booking completes.</p>
+        </div>
+        <button onClick={() => setShowAll(true)} className="shrink-0 text-xs font-bold text-brand hover:underline whitespace-nowrap">View All</button>
       </div>
 
       {error && <p className="text-xs text-danger font-semibold">{error}</p>}
@@ -167,6 +228,176 @@ function RatesCard() {
           </div>
         )}
       </div>
+
+      {showAll && <AllVendorRatesModal data={data} onClose={() => setShowAll(false)} />}
+    </div>
+  )
+}
+
+/* ── All Categories modal for Platform Markup ── */
+function AllCategoryMarkupModal({ data, onClose }) {
+  const [search, setSearch] = useState('')
+
+  const categories = (data?.categories || [])
+    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800 text-sm">All Categories — Platform Markup</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5">Global markup: {data?.globalRate ?? 0}% — applies unless overridden below.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="px-6 pt-4 pb-2 shrink-0">
+          <input
+            type="text"
+            placeholder="Search category…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+          />
+        </div>
+        <div className="overflow-y-auto px-6 pb-6">
+          {categories.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">No categories match.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {categories.map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm font-semibold text-slate-700">{c.name}</span>
+                  {c.customRate !== null ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
+                      {c.customRate}% <span className="text-brand/60 font-semibold">(override)</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400">{data?.globalRate ?? 0}% <span className="text-slate-300">(global)</span></span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Platform Markup card (FULL access only) ──
+   Inflates what the customer sees/pays on top of a vendor's own basePrice —
+   the vendor is always paid their real basePrice; the markup itself is pure
+   platform revenue, folded invisibly into the price shown (no separate
+   "platform fee" line anywhere). Global rate + per-category override, same
+   shape as the Recharge Management page's Per-Category Registration Fee
+   override — a markup is a pricing-policy call made per service category,
+   not negotiated per vendor like commission. 0% (no override) means the
+   customer sees exactly the vendor's own price, unchanged. */
+function MarkupRatesCard() {
+  const [data, setData] = useState(null)
+  const [globalRate, setGlobalRate] = useState('')
+  const [savingGlobal, setSavingGlobal] = useState(false)
+  const [categoryId, setCategoryId] = useState('')
+  const [categoryRate, setCategoryRate] = useState('')
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [error, setError] = useState('')
+  const [showAll, setShowAll] = useState(false)
+
+  const load = useCallback(() => {
+    getFinanceMarkupRates()
+      .then(d => { setData(d); setGlobalRate(String(d.globalRate)) })
+      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load markup rates.'))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const flash = t => { setMsg(t); setTimeout(() => setMsg(''), 2500) }
+
+  const saveGlobal = async () => {
+    const rate = Number(globalRate)
+    if (Number.isNaN(rate) || rate < 0 || rate > 100) { setError('Enter a rate between 0 and 100.'); return }
+    setSavingGlobal(true); setError('')
+    try {
+      await setFinanceGlobalMarkupRate(rate)
+      flash('Global markup updated.')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save global markup.')
+    } finally { setSavingGlobal(false) }
+  }
+
+  const saveCategory = async (clear = false) => {
+    if (!categoryId) return
+    const rate = clear ? null : Number(categoryRate)
+    if (!clear && (Number.isNaN(rate) || rate < 0 || rate > 100)) { setError('Enter a rate between 0 and 100.'); return }
+    setSavingCategory(true); setError('')
+    try {
+      await setFinanceCategoryMarkupRate(categoryId, clear ? null : rate)
+      flash(clear ? 'Category override cleared.' : 'Category markup set.')
+      setCategoryRate('')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save category markup.')
+    } finally { setSavingCategory(false) }
+  }
+
+  const customCategories = (data?.categories || []).filter(c => c.customRate !== null)
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-black text-slate-800 text-sm">Platform Markup</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Adds a % on top of the vendor's own price before the customer ever sees it — the vendor is always paid their real price, the markup is pure platform revenue. 0% (no override) shows the customer the vendor's price unchanged.</p>
+        </div>
+        <button onClick={() => setShowAll(true)} className="shrink-0 text-xs font-bold text-brand hover:underline whitespace-nowrap">View All</button>
+      </div>
+
+      {error && <p className="text-xs text-danger font-semibold">{error}</p>}
+      {msg && <p className="text-xs text-success font-semibold">{msg}</p>}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Global Markup %</label>
+          <div className="flex items-center gap-2">
+            <input type="number" min="0" max="100" step="0.5" className={`${selectCls} w-28`} value={globalRate} onChange={e => setGlobalRate(e.target.value)} />
+            <button onClick={saveGlobal} disabled={savingGlobal} className="bg-brand text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-brand/90 disabled:opacity-50">{savingGlobal ? 'Saving…' : 'Save'}</button>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 pb-2">Default fallback: {data?.defaultRate ?? 0}%</p>
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Per-Category Override</label>
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchableSelect
+            value={categoryId}
+            onChange={v => { setCategoryId(v); const found = data?.categories.find(x => x.id === v); setCategoryRate(found?.customRate != null ? String(found.customRate) : '') }}
+            options={(data?.categories || []).map(c => ({ value: c.id, label: `${c.name}${c.customRate != null ? ` — ${c.customRate}%` : ''}` }))}
+            placeholder="Select category…"
+            buttonClassName="min-w-52"
+          />
+          <input type="number" min="0" max="100" step="0.5" placeholder="%" className={`${selectCls} w-24`} value={categoryRate} onChange={e => setCategoryRate(e.target.value)} />
+          <button onClick={() => saveCategory(false)} disabled={savingCategory || !categoryId} className="bg-brand text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-brand/90 disabled:opacity-40">Set</button>
+          <button onClick={() => saveCategory(true)} disabled={savingCategory || !categoryId} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200 disabled:opacity-40">Clear</button>
+        </div>
+        {customCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {customCategories.map(c => (
+              <span key={c.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/8 text-brand text-[11px] font-bold">
+                {c.name}: {c.customRate}%
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showAll && <AllCategoryMarkupModal data={data} onClose={() => setShowAll(false)} />}
     </div>
   )
 }
@@ -238,9 +469,14 @@ export default function CommissionsPage() {
         </div>
       )}
 
-      {canEditRates
-        ? <RatesCard />
-        : <p className="text-xs text-slate-400">Commission-rate configuration needs full access on this page — ask a Finance Admin.</p>}
+      {canEditRates ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <RatesCard />
+          <MarkupRatesCard />
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400">Commission-rate and markup configuration needs full access on this page — ask a Finance Admin.</p>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap items-center gap-3">
@@ -281,16 +517,16 @@ export default function CommissionsPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50/70 border-b border-slate-100">
               <tr>
-                {['Booking', 'Vendor', 'Customer', 'Booking Amount', 'Rate', 'Platform Revenue', 'Settlement to Vendor', 'Status', 'Scheduled Settlement', 'Invoice'].map(h => (
+                {['Booking', 'Vendor', 'Customer', 'Booking Amount', 'Rate', 'Markup', 'Platform Revenue', 'Settlement to Vendor', 'Status', 'Scheduled Settlement', 'Invoice'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
+                <tr><td colSpan={11} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400 text-sm">No commission records match your filters</td></tr>
+                <tr><td colSpan={11} className="px-4 py-12 text-center text-slate-400 text-sm">No commission records match your filters</td></tr>
               ) : items.map(c => {
                 const es = effectiveStatus(c)
                 return (
@@ -309,6 +545,7 @@ export default function CommissionsPage() {
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{fmtMoney(c.bookingAmount)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{c.commissionRate}%</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{c.markupAmount > 0 ? fmtMoney(c.markupAmount) : '—'}</td>
                     <td className="px-4 py-3 font-bold text-success whitespace-nowrap">{fmtMoney(c.platformRevenue)}</td>
                     <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{fmtMoney(c.settlementToVendor)}</td>
                     <td className="px-4 py-3">

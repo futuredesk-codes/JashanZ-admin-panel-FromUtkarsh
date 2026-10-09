@@ -205,14 +205,14 @@ export default function DashboardPage() {
         <GroupHeader icon={I.rev} tint="bg-warning/10 text-warning" label="Bookings & Revenue" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <StatCard label="Total Bookings" value={k ? fmtNum(k.totalBookings) : '—'} sub="Across all vendors" color="brand" icon={I.book} />
-          <StatCard label="Total Commission Revenue" value={k ? fmtMoney(k.totalCommissionRevenue) : '—'} sub="Platform earnings" color="success" icon={I.rev} />
+          <StatCard label="Total Platform Revenue" value={k ? fmtMoney(k.totalCommissionRevenue) : '—'} sub="Commission + markup" color="success" icon={I.rev} />
           <StatCard label="Settlements Disbursed" value={k ? fmtMoney(k.settlementsDisbursed) : '—'} sub="Transferred to vendors" color="info" icon={I.payout} />
         </div>
       </div>
 
       {/* Charts row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Revenue Trend" sub={`Commission · Recharge · Settlements (₹, ${filters.granularity}ly)`}>
+        <ChartCard title="Revenue Trend" sub={`Commission+Markup · Recharge · Settlements (₹, ${filters.granularity}ly)`}>
           {!revenueTrend.length ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={revenueTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
                 <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtMoney} width={55} />
                 <Tooltip formatter={v => fmtMoney(v)} contentStyle={tooltipStyle} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <Line type="monotone" dataKey="commission" name="Commission" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                <Line type="monotone" dataKey="commission" name="Commission+Markup" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Line type="monotone" dataKey="recharge" name="Recharge" stroke="#3BBDF7" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Line type="monotone" dataKey="settlements" name="Settlements" stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
               </LineChart>
@@ -273,7 +273,7 @@ export default function DashboardPage() {
           )}
         </ChartCard>
 
-        <ChartCard title="Commission by Category" sub="Top service categories (₹)">
+        <ChartCard title="Platform Revenue by Category" sub="Commission + markup, top service categories (₹)">
           {!revenueByCategory.length ? <EmptyChart height={200} /> : (
             <>
               <ResponsiveContainer width="100%" height={200}>
@@ -297,14 +297,14 @@ export default function DashboardPage() {
           )}
         </ChartCard>
 
-        <ChartCard title="Commission by City" sub="Top areas by platform revenue">
+        <ChartCard title="Platform Revenue by City" sub="Commission + markup, top areas">
           {!revenueByCity.length ? <EmptyChart height={280} /> : (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={revenueByCity} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtMoney} />
                 <YAxis type="category" dataKey="city" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={70} />
-                <Tooltip formatter={v => [fmtMoney(v), 'Commission']} contentStyle={tooltipStyle} />
+                <Tooltip formatter={v => [fmtMoney(v), 'Revenue']} contentStyle={tooltipStyle} />
                 <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>

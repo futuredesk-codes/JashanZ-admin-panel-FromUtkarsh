@@ -32,6 +32,12 @@ export const getFinanceRegistrationFeeRates = () =>
   api.get("/finance/registration-fee-rates");
 export const setFinanceCategoryRegistrationFee = (categoryId, fee) =>
   api.post(`/finance/registration-fee/category/${categoryId}`, { fee });
+export const getFinanceMarkupRates = () =>
+  api.get("/finance/markup-rates");
+export const setFinanceGlobalMarkupRate = (rate) =>
+  api.post("/finance/markup-rate/global", { rate });
+export const setFinanceCategoryMarkupRate = (categoryId, rate) =>
+  api.post(`/finance/markup-rate/category/${categoryId}`, { rate });
 export const getRefundablePayments = (params) =>
   api.get("/finance/refunds/payments", params);
 export const getRefunds = (params) => api.get("/finance/refunds", params);

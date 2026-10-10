@@ -77,6 +77,16 @@ export const markSettlementTransferred = (id, razorpayPayoutId) =>
 export const deleteSettlement = (id) =>
   api.post(`/admin/settlement/${id}/delete`);
 
+/* ── Vendor Settlements page — one row per vendor with pending commissions ── */
+export const getVendorSettlementSummary = (params) =>
+  api.get("/admin/vendor-settlements", params);
+export const getVendorPendingCommissions = (businessId) =>
+  api.get(`/admin/vendor-settlements/${businessId}/pending`);
+export const getVendorSettlementHistory = (businessId, params) =>
+  api.get(`/admin/vendor-settlements/${businessId}/history`, params);
+export const markVendorPaymentDone = (businessId, payload) =>
+  api.post(`/admin/vendor-settlements/${businessId}/mark-paid`, payload);
+
 export const setRegistrationPayment = (businessId, isPaid) =>
   api.post(`/admin/business/${businessId}/registration-payment`, { isPaid });
 

@@ -60,6 +60,7 @@ import CustomersPage from "./pages/admin/CustomersPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import CirclesPage from "./pages/admin/CirclesPage";
 import FinancePage from "./pages/admin/FinancePage";
+import VendorSettlementsPage from "./pages/admin/VendorSettlementsPage";
 import SupportUsersPage from "./pages/admin/SupportUsersPage";
 import FinanceUsersPage from "./pages/admin/FinanceUsersPage";
 import AdManagerUsersPage from "./pages/admin/AdManagerUsersPage";
@@ -178,6 +179,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="adminFinance">
               <FinancePage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="vendor-settlements"
+          element={
+            <PagePermissionGuard pageId="adminFinance">
+              <VendorSettlementsPage />
             </PagePermissionGuard>
           }
         />

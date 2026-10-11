@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getPricing, updateFee, updateSubscriptionPlanPrice, getWalletTransactions, deleteTransaction, getFinanceRegistrationFeeRates, setFinanceCategoryRegistrationFee } from '../../api/finance'
+import { getPricing, updateFee, getWalletTransactions, deleteTransaction, getFinanceRegistrationFeeRates, setFinanceCategoryRegistrationFee } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import { usePermissions } from '../../context/PermissionsContext'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -244,71 +244,6 @@ function RegistrationFeeOverrideCard() {
   )
 }
 
-function PlanEditor({ plan, onSaved }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-
-  const startEdit = () => {
-    setDraft(String(plan.price))
-    setError('')
-    setEditing(true)
-  }
-
-  const handleSave = async () => {
-    const price = Number(draft)
-    if (!price || price <= 0) {
-      setError('Enter a valid amount.')
-      return
-    }
-    setSaving(true)
-    setError('')
-    try {
-      await updateSubscriptionPlanPrice(plan._id, price)
-      setEditing(false)
-      onSaved()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="bg-white rounded-2xl p-4 border border-slate-100">
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1">{plan.name}</p>
-      <p className="text-[11px] text-slate-400 mb-2">{plan.durationDays} days{!plan.isActive && <span className="text-danger font-bold"> · inactive</span>}</p>
-      {editing ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-sm font-bold">₹</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              autoFocus
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
-            />
-          </div>
-          {error && <p className="text-[11px] text-danger font-semibold">{error}</p>}
-          <div className="flex gap-2">
-            <button onClick={() => setEditing(false)} disabled={saving} className="flex-1 bg-slate-100 text-slate-600 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-slate-200 disabled:opacity-50">Cancel</button>
-            <button onClick={handleSave} disabled={saving} className="flex-1 bg-brand text-white rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-brand/90 disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <p className="text-xl font-black text-slate-800">₹{plan.price}</p>
-          <button onClick={startEdit} className="text-xs font-bold text-brand hover:underline">Edit</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
 function TransactionDetailModal({ transaction, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -380,7 +315,14 @@ export default function RechargeManagementPage() {
     setTxLoading(true)
     setTxError('')
     try {
-      const data = await getWalletTransactions(typeFilter ? { type: typeFilter, limit: 50 } : { limit: 50 })
+      // AdManager Access / Subscription payments now have their own pages
+      // with their own transaction logs — excluded here so they don't show
+      // twice.
+      const data = await getWalletTransactions({
+        ...(typeFilter ? { type: typeFilter } : {}),
+        excludeSources: 'AD_MANAGER_ACCESS,SUBSCRIPTION',
+        limit: 50,
+      })
       setTransactions(data.items || [])
     } catch (err) {
       setTxError(err instanceof ApiError ? err.message : 'Failed to load transactions.')
@@ -410,7 +352,7 @@ export default function RechargeManagementPage() {
     <div className="space-y-5 pb-6">
       <div>
         <h1 className="text-xl font-black text-slate-800">Recharge Management</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Pricing for business registration, AdManager access, and inquiry-unlock subscriptions — plus a live log of every recharge/purchase transaction.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Business registration fee pricing (global + per-category overrides) — plus a live log of every recharge/purchase transaction.</p>
       </div>
 
       {pricingLoading ? (
@@ -423,26 +365,12 @@ export default function RechargeManagementPage() {
             <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">One-Time Fees</p>
             <div className="grid grid-cols-2 gap-4">
               <FeeEditor label="Business Registration Fee" keyName="businessRegistrationFee" valueInPaise={pricing.businessRegistrationFee} onSaved={loadPricing} />
-              <FeeEditor label="AdManager Access Fee" keyName="adManagerFee" valueInPaise={pricing.adManagerFee} onSaved={loadPricing} />
             </div>
           </div>
 
           {canEditRates
             ? <RegistrationFeeOverrideCard />
             : <p className="text-xs text-slate-400">Per-business fee overrides need full access on this page — ask a Finance Admin.</p>}
-
-          <div>
-            <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Inquiry-Unlock Subscription Plans</p>
-            {pricing.subscriptionPlans.length === 0 ? (
-              <p className="text-sm text-slate-400">No plans configured.</p>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {pricing.subscriptionPlans.map(plan => (
-                  <PlanEditor key={plan._id} plan={plan} onSaved={loadPricing} />
-                ))}
-              </div>
-            )}
-          </div>
         </>
       )}
 

@@ -35,10 +35,12 @@ import FinanceDashboardPage from "./pages/finance/DashboardPage";
 import VendorPaymentsPage from "./pages/finance/VendorPaymentsPage";
 import BookingPaymentsPage from "./pages/finance/BookingPaymentsPage";
 import PayoutsPage from "./pages/finance/PayoutsPage";
-import FinanceCommissionsPage from "./pages/finance/CommissionsPage";
 import FinanceRefundsPage from "./pages/finance/RefundsPage";
 import FinanceReportsPage from "./pages/finance/ReportsPage";
 import RechargeManagementPage from "./pages/finance/RechargeManagementPage";
+import CommissionRechargeManagementPage from "./pages/finance/CommissionRechargeManagementPage";
+import AdManagerFeePage from "./pages/finance/AdManagerFeePage";
+import SubscriptionPlansPage from "./pages/finance/SubscriptionPlansPage";
 import FinanceLayout from "./components/layout/FinanceLayout";
 
 import AdManagerLoginPage from "./pages/admanager/LoginPage";
@@ -388,7 +390,7 @@ function AppRoutes() {
           path="commission"
           element={
             <PagePermissionGuard pageId="financeCommission">
-              <FinanceCommissionsPage />
+              <CommissionRechargeManagementPage />
             </PagePermissionGuard>
           }
         />
@@ -398,6 +400,24 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="financeRecharge">
               <RechargeManagementPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="admanager-fee"
+          element={
+            <PagePermissionGuard pageId="financeRecharge">
+              <AdManagerFeePage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="subscription-plans"
+          element={
+            <PagePermissionGuard pageId="financeRecharge">
+              <SubscriptionPlansPage />
             </PagePermissionGuard>
           }
         />

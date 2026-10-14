@@ -32,6 +32,7 @@ import SupportAdReviewPage from "./pages/support/AdReviewPage";
 
 import FinanceLoginPage from "./pages/finance/LoginPage";
 import FinanceDashboardPage from "./pages/finance/DashboardPage";
+import RevenuePage from "./pages/finance/RevenuePage";
 import VendorPaymentsPage from "./pages/finance/VendorPaymentsPage";
 import BookingPaymentsPage from "./pages/finance/BookingPaymentsPage";
 import PayoutsPage from "./pages/finance/PayoutsPage";
@@ -364,6 +365,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="financeDashboard">
               <FinanceDashboardPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="revenue"
+          element={
+            <PagePermissionGuard pageId="financeRevenue">
+              <RevenuePage />
             </PagePermissionGuard>
           }
         />

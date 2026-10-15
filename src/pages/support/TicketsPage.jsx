@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
-import { listTickets, getTicketDetails, addTicketNote, resolveTicket, escalateTicket } from '../../api/support'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { listTickets, getTicketDetails, addTicketNote, resolveTicket, escalateTicket, replyToTicketAsStaff, sendResolutionCheck } from '../../api/support'
 import { ApiError } from '../../api/client'
+import { connectStaffSocket } from '../../utils/staffSocket'
 
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED']
 
@@ -34,6 +35,8 @@ const IconCheck = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="no
 const IconAlert = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 const IconEye = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 const IconNote = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+const IconChat = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+const IconSend = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
 const IconX = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 
 function NoteModal({ ticket, onClose, onSaved }) {
@@ -177,6 +180,160 @@ function TicketDetailModal({ ticketId, onClose }) {
   )
 }
 
+function TicketChatModal({ ticketId, onClose }) {
+  const [ticket, setTicket] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendingCheck, setSendingCheck] = useState(false)
+  const bottomRef = useRef(null)
+
+  const load = useCallback(async () => {
+    try {
+      const data = await getTicketDetails(ticketId)
+      setTicket(data.ticket)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load conversation.')
+    } finally {
+      setLoading(false)
+    }
+  }, [ticketId])
+
+  useEffect(() => { load() }, [load])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ block: 'nearest' }) }, [ticket?.messages?.length])
+
+  useEffect(() => {
+    const socket = connectStaffSocket()
+    socket.on('support:ticket-message', (payload) => {
+      if (String(payload.ticketId) !== String(ticketId)) return
+      setTicket(prev => (prev ? { ...prev, messages: payload.messages, status: payload.status } : prev))
+    })
+    return () => socket.disconnect()
+  }, [ticketId])
+
+  const handleSend = async e => {
+    e.preventDefault()
+    const trimmed = text.trim()
+    if (!trimmed || sending) return
+    setSending(true)
+    setError('')
+    try {
+      await replyToTicketAsStaff(ticketId, trimmed)
+      setText('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to send message.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleSendResolutionCheck = async () => {
+    if (sendingCheck) return
+    setSendingCheck(true)
+    setError('')
+    try {
+      await sendResolutionCheck(ticketId)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to send resolution check.')
+    } finally {
+      setSendingCheck(false)
+    }
+  }
+
+  const hasPendingCheck = ticket?.messages?.some(m => m.type === 'RESOLUTION_CHECK' && m.resolutionResponse === 'PENDING')
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg h-[85vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800">{ticket?.subject || 'Conversation'}</h3>
+            {ticket && <p className="text-xs text-slate-400">{ticket.raisedBy?.name || ticket.raisedBy?.username || ticket.raisedByModel}</p>}
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconX /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-slate-50">
+          {loading ? (
+            <p className="text-sm text-slate-400 text-center py-12">Loading...</p>
+          ) : !ticket?.messages || ticket.messages.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-12">No messages yet</p>
+          ) : ticket.messages.map((m, i) => {
+            const isStaff = m.authorModel === 'AdminUser'
+            if (m.type === 'RESOLUTION_CHECK') {
+              return (
+                <div key={i} className="flex justify-start">
+                  <div className="max-w-[80%] rounded-2xl px-3.5 py-2.5 bg-warning/10 border border-warning/25 text-slate-800">
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                    <p className="text-[10px] mt-1.5 font-bold">
+                      {m.resolutionResponse === 'PENDING' && <span className="text-warning">Awaiting response…</span>}
+                      {m.resolutionResponse === 'CONFIRMED' && <span className="text-success">Confirmed — satisfied</span>}
+                      {m.resolutionResponse === 'REJECTED' && <span className="text-danger">Did not understand</span>}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{new Date(m.createdAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div key={i} className={`flex ${isStaff ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 ${isStaff ? 'bg-brand text-white' : 'bg-white border border-slate-200 text-slate-800'}`}>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                  <p className={`text-[10px] mt-1 ${isStaff ? 'text-white/70' : 'text-slate-400'}`}>
+                    {isStaff ? (m.author?.username ?? 'Staff') : (m.author?.username ?? m.author?.name ?? 'User')} &middot; {new Date(m.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+          <div ref={bottomRef} />
+        </div>
+
+        {error && <p className="px-6 py-2 text-xs text-danger font-semibold shrink-0">{error}</p>}
+
+        {ticket && ticket.status !== 'RESOLVED' && (
+          <div className="px-4 pt-3 border-t border-slate-100 shrink-0">
+            <button
+              type="button"
+              onClick={handleSendResolutionCheck}
+              disabled={sendingCheck || hasPendingCheck || loading}
+              className="w-full text-center text-sm font-bold text-success hover:text-success/80 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {hasPendingCheck ? 'Resolution check pending…' : sendingCheck ? 'Sending…' : 'Send resolution check message'}
+            </button>
+          </div>
+        )}
+
+        {ticket?.status === 'RESOLVED' ? (
+          <div className="px-4 py-3 border-t border-slate-100 shrink-0 text-center text-xs font-bold text-success">
+            This ticket is resolved — the conversation is closed.
+          </div>
+        ) : (
+          <form onSubmit={handleSend} className="flex items-center gap-2 px-4 py-3 shrink-0">
+            <input
+              type="text"
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="Type your reply..."
+              maxLength={2000}
+              disabled={sending || loading}
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={!text.trim() || sending || loading}
+              className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-brand text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-brand/90"
+            >
+              <IconSend />
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function TicketsPage({
   lockedSource = '',
   title = 'Ticket Management',
@@ -190,6 +347,7 @@ export default function TicketsPage({
   const [busyId, setBusyId] = useState(null)
   const [notingTicket, setNotingTicket] = useState(null)
   const [viewingTicketId, setViewingTicketId] = useState(null)
+  const [chattingTicketId, setChattingTicketId] = useState(null)
 
   const fetchTickets = useCallback(async () => {
     setLoading(true)
@@ -296,6 +454,7 @@ export default function TicketsPage({
                     <div className="flex items-center gap-1">
                       <button onClick={() => setViewingTicketId(t._id)} disabled={busyId===t._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-brand/8 text-brand hover:bg-brand/15 disabled:opacity-50" title="View details"><IconEye /></button>
                       <button onClick={() => setNotingTicket(t)} disabled={busyId===t._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50" title="Add note"><IconNote /></button>
+                      <button onClick={() => setChattingTicketId(t._id)} disabled={busyId===t._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 disabled:opacity-50" title="Chat with user"><IconChat /></button>
                       {t.status !== 'RESOLVED' && (
                         <button onClick={() => handleResolve(t._id)} disabled={busyId===t._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 disabled:opacity-50" title="Mark resolved"><IconCheck /></button>
                       )}
@@ -316,6 +475,7 @@ export default function TicketsPage({
 
       {notingTicket && <NoteModal ticket={notingTicket} onClose={() => setNotingTicket(null)} onSaved={fetchTickets} />}
       {viewingTicketId && <TicketDetailModal ticketId={viewingTicketId} onClose={() => setViewingTicketId(null)} />}
+      {chattingTicketId && <TicketChatModal ticketId={chattingTicketId} onClose={() => setChattingTicketId(null)} />}
     </div>
   )
 }

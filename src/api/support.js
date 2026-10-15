@@ -14,6 +14,8 @@ export const assignTicket = (id, agentId) => api.post(`/support/tickets/${id}/as
 export const addTicketNote = (id, text) => api.post(`/support/tickets/${id}/note`, { text })
 export const resolveTicket = (id) => api.post(`/support/tickets/${id}/resolve`)
 export const escalateTicket = (id) => api.post(`/support/tickets/${id}/escalate`)
+export const replyToTicketAsStaff = (id, text) => api.post(`/support/tickets/${id}/reply`, { text })
+export const sendResolutionCheck = (id) => api.post(`/support/tickets/${id}/resolution-check`)
 
 /* ── Raise Ticket (vendor-facing — used by the AdManager portal to raise an
    AD_COMPLAINT; same endpoints Business/Creator/User Settings pages use in

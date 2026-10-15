@@ -60,7 +60,7 @@ function PhonePreview({ platform, dark, appName, title, body, imageUrl, buttonLa
           <h4 className="text-[15px] font-semibold line-clamp-3">{titleText}</h4>
           <p className="text-[14px] leading-tight line-clamp-3" style={{ color: dark ? '#d4d4d8' : '#475569' }}>{bodyText}</p>
         </div>
-        {imageUrl && <img src={imageUrl} alt="" className="col-span-2 rounded-xl mt-1 aspect-[2/1] object-cover" />}
+        {imageUrl && <img src={imageUrl} alt="" className="col-span-2 rounded-xl mt-1 aspect-[2/1] object-contain bg-black/5" />}
         {buttonLabel && (
           <span
             className="col-span-2 mt-1 px-4 py-2 rounded-full text-[13px] font-bold w-max max-w-full"
@@ -80,7 +80,7 @@ function PhonePreview({ platform, dark, appName, title, body, imageUrl, buttonLa
       </div>
       <h4 className="text-[15px] font-semibold mb-0.5 line-clamp-3">{titleText}</h4>
       <p className="text-[14px] leading-snug line-clamp-3" style={{ color: dark ? '#d4d4d8' : '#475569' }}>{bodyText}</p>
-      {imageUrl && <img src={imageUrl} alt="" className="rounded-xl mt-2.5 aspect-[2/1] object-cover w-full" />}
+      {imageUrl && <img src={imageUrl} alt="" className="rounded-xl mt-2.5 aspect-[2/1] object-contain bg-black/5 w-full" />}
       {buttonLabel && (
         <span
           className="inline-block mt-2.5 px-4 py-2 rounded-full text-[13px] font-bold"
@@ -286,12 +286,12 @@ export default function BroadcastPage() {
                   Poster <span className="normal-case tracking-normal font-normal text-slate-400">Optional · 1024 × 512 px, JPG or PNG, max 2 MB</span>
                 </label>
                 <label
-                  className={`relative flex items-center justify-center min-h-[120px] rounded-xl border-2 border-dashed cursor-pointer text-sm text-slate-400 bg-slate-50 bg-center bg-cover overflow-hidden ${imageError ? 'border-danger' : 'border-slate-300 hover:border-brand'}`}
-                  style={imageUrl ? { backgroundImage: `linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.45)), url("${imageUrl}")`, color: '#fff' } : undefined}
+                  className={`relative flex items-center justify-center min-h-[120px] rounded-xl border-2 border-dashed cursor-pointer text-sm text-slate-400 bg-slate-50 overflow-hidden ${imageError ? 'border-danger' : 'border-slate-300 hover:border-brand'}`}
                 >
+                  {imageUrl && <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-contain" />}
                   <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={pickImage} disabled={uploading} />
                   {uploading ? 'Uploading…' : imageUrl ? (
-                    <button type="button" onClick={(e) => { e.preventDefault(); clearImage() }} className="absolute top-2.5 right-2.5 bg-black/60 text-white rounded-lg px-2.5 py-1.5 text-xs font-bold">Remove</button>
+                    <button type="button" onClick={(e) => { e.preventDefault(); clearImage() }} className="absolute top-2.5 right-2.5 bg-black/60 text-white rounded-lg px-2.5 py-1.5 text-xs font-bold z-10">Remove</button>
                   ) : (
                     <span>Drag a poster here or <b className="text-brand">browse files</b></span>
                   )}
@@ -416,7 +416,7 @@ export default function BroadcastPage() {
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
                 <p className="text-sm font-bold text-slate-800">{title}</p>
                 <p className="text-sm text-slate-600 mt-1 whitespace-pre-line">{body}</p>
-                {imageUrl && <img src={imageUrl} alt="" className="rounded-lg mt-2 aspect-[2/1] object-cover w-full" />}
+                {imageUrl && <img src={imageUrl} alt="" className="rounded-lg mt-2 aspect-[2/1] object-contain bg-black/5 w-full" />}
               </div>
               <div className="flex gap-3 pt-1">
                 <button
@@ -466,7 +466,9 @@ export default function BroadcastPage() {
                   <tr key={h._id} className="hover:bg-slate-50">
                     <td className="px-5 py-3">
                       {h.imageUrl ? (
-                        <span className="block w-16 h-9 rounded-md bg-cover bg-center bg-slate-200" style={{ backgroundImage: `url("${h.imageUrl}")` }} />
+                        <span className="block w-16 h-9 rounded-md bg-slate-100 overflow-hidden">
+                          <img src={h.imageUrl} alt="" className="w-full h-full object-contain" />
+                        </span>
                       ) : (
                         <span className="block w-16 h-9 rounded-md bg-slate-100" />
                       )}

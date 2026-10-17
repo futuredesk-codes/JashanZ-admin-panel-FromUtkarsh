@@ -35,8 +35,10 @@ import FinanceDashboardPage from "./pages/finance/DashboardPage";
 import RevenuePage from "./pages/finance/RevenuePage";
 import VendorPaymentsPage from "./pages/finance/VendorPaymentsPage";
 import BookingPaymentsPage from "./pages/finance/BookingPaymentsPage";
+import PromotionPaymentsPage from "./pages/finance/PromotionPaymentsPage";
 import PayoutsPage from "./pages/finance/PayoutsPage";
 import FinanceRefundsPage from "./pages/finance/RefundsPage";
+import CancellationRefundsPage from "./pages/finance/CancellationRefundsPage";
 import FinanceReportsPage from "./pages/finance/ReportsPage";
 import RechargeManagementPage from "./pages/finance/RechargeManagementPage";
 import CommissionRechargeManagementPage from "./pages/finance/CommissionRechargeManagementPage";
@@ -397,6 +399,15 @@ function AppRoutes() {
         />
 
         <Route
+          path="promotion-payments"
+          element={
+            <PagePermissionGuard pageId="financePromotionPayments">
+              <PromotionPaymentsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
           path="commission"
           element={
             <PagePermissionGuard pageId="financeCommission">
@@ -446,6 +457,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="financeRefunds">
               <FinanceRefundsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="cancellation-refunds"
+          element={
+            <PagePermissionGuard pageId="financeBookingCancellations">
+              <CancellationRefundsPage />
             </PagePermissionGuard>
           }
         />

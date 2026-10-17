@@ -20,6 +20,10 @@ export const getBookingPaymentDetails = (id) =>
 
 export const deleteBookingPayment = (id) =>
   api.delete(`/finance/booking-payments/${id}`);
+export const getPromotionPayments = (params) =>
+  api.get("/finance/promotion-payments", params);
+export const getPromotionPaymentDetails = (id) =>
+  api.get(`/finance/promotion-payments/${id}`);
 export const getFinancePayouts = (params) =>
   api.get("/finance/settlements", params);
 export const getFinanceCommissions = (params) =>
@@ -45,6 +49,12 @@ export const getRefundablePayments = (params) =>
 export const getRefunds = (params) => api.get("/finance/refunds", params);
 export const initiateRefund = (payload) =>
   api.post("/finance/refunds", payload);
+export const getCancellationRefunds = (params) =>
+  api.get("/finance/cancellation-refunds", params);
+export const initiateCancellationRefund = (payload) =>
+  api.post("/finance/cancellation-refunds", payload);
+export const getCancellationRefundHistory = (params) =>
+  api.get("/finance/cancellation-refunds/history", params);
 export const getWalletTransactions = (params) =>
   api.get("/finance/transactions", params);
 export const getLeadRecharges = (params) =>

@@ -3,6 +3,7 @@ import { getFinanceRevenue } from '../../api/finance'
 import { ApiError } from '../../api/client'
 
 const fmtMoney = n => `₹${Number(n || 0).toLocaleString('en-IN')}`
+const STATUS_LABELS = { WITHHELD_ON_CANCELLATION: 'Withheld (cancelled booking)' }
 const fmtDateTime = d => (d ? new Date(d).toLocaleString('en-IN') : '—')
 
 const selectCls = 'bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20'
@@ -138,7 +139,7 @@ export default function RevenuePage() {
                   <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{item.vendor?.name || '—'}</td>
                   <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{item.customer?.name || '—'}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{fmtMoney(item.amount)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{item.status || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{STATUS_LABELS[item.status] || item.status || '—'}</td>
                   <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDateTime(item.date)}</td>
                   <td className="px-4 py-3 text-[11px] text-slate-400 font-mono whitespace-nowrap">{item.reference}</td>
                 </tr>

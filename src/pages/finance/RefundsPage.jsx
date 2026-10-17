@@ -21,11 +21,6 @@ const shortId = (id) => (id ? String(id).slice(-8).toUpperCase() : "—");
 const selectCls =
   "bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20";
 
-const SOURCE_TABS = [
-  { key: "BOOKING", label: "Bookings" },
-  { key: "WALLET_TXN", label: "Wallet Purchases" },
-  { key: "REGISTRATION_FEE", label: "Registration Fees" },
-];
 const SOURCE_LABEL = {
   BOOKING: "Booking",
   WALLET_TXN: "Wallet Purchase",
@@ -423,7 +418,6 @@ export default function RefundsPage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     status: "",
-    sourceType: "",
     from: "",
     to: "",
   });
@@ -436,7 +430,7 @@ export default function RefundsPage() {
   );
 
   const params = useMemo(() => {
-    const p = { page, limit: 20 };
+    const p = { page, limit: 20, sourceType: "REGISTRATION_FEE" };
     Object.entries(filters).forEach(([k, v]) => {
       if (v) p[k] = v;
     });
@@ -468,8 +462,7 @@ export default function RefundsPage() {
     load();
   }, [load]);
 
-  const anyFilter =
-    filters.status || filters.sourceType || filters.from || filters.to;
+  const anyFilter = filters.status || filters.from || filters.to;
 
   const tiles = summary
     ? [
@@ -560,18 +553,6 @@ export default function RefundsPage() {
                 </option>
               ))}
             </select>
-            <select
-              className={selectCls}
-              value={filters.sourceType}
-              onChange={(e) => setF("sourceType", e.target.value)}
-            >
-              <option value="">All payment types</option>
-              {SOURCE_TABS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {SOURCE_LABEL[s.key]}
-                </option>
-              ))}
-            </select>
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -592,7 +573,7 @@ export default function RefundsPage() {
             {anyFilter && (
               <button
                 onClick={() => {
-                  setFilters({ status: "", sourceType: "", from: "", to: "" });
+                  setFilters({ status: "", from: "", to: "" });
                   setPage(1);
                 }}
                 className="text-xs font-semibold text-slate-400 hover:text-slate-600"
@@ -620,7 +601,6 @@ export default function RefundsPage() {
                   <tr>
                     {[
                       "Refunded To",
-                      "Payment Type",
                       "Amount",
                       "Reason",
                       "Method",
@@ -643,7 +623,7 @@ export default function RefundsPage() {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={9}
                         className="px-4 py-12 text-center text-slate-400 text-sm"
                       >
                         Loading…
@@ -652,7 +632,7 @@ export default function RefundsPage() {
                   ) : items.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={9}
                         className="px-4 py-12 text-center text-slate-400 text-sm"
                       >
                         No refunds match your filters
@@ -663,9 +643,6 @@ export default function RefundsPage() {
                       <tr key={r._id} className="hover:bg-slate-50">
                         <td className="px-4 py-3 text-xs font-bold text-slate-800">
                           {r.payer?.name}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500">
-                          {SOURCE_LABEL[r.sourceType] || r.sourceType}
                         </td>
                         <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">
                           {fmtMoney(r.amount)}

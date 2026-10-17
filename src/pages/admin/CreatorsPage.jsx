@@ -43,10 +43,9 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
   const handleSaveStats = async () => {
     setSavingStats(true)
     setStatsError('')
-    const payload = {
-      instagramFollowers: Number(statsForm.instagramFollowers) || 0,
-      youtubeSubscribers: Number(statsForm.youtubeSubscribers) || 0,
-    }
+    const payload = {}
+    if (creator.instagramUsername || creator.instagramUrl) payload.instagramFollowers = Number(statsForm.instagramFollowers) || 0
+    if (creator.youtubeUsername || creator.youtubeUrl) payload.youtubeSubscribers = Number(statsForm.youtubeSubscribers) || 0
     try {
       await updateCreatorSocialStats(creator._id, payload)
       onStatsSaved(creator._id, payload)
@@ -90,25 +89,47 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
 
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Instagram Followers</p>
-              <input
-                type="number"
-                min="0"
-                value={statsForm.instagramFollowers}
-                onChange={e => setStatsForm(f => ({ ...f, instagramFollowers: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
-              />
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Phone Number</p>
+              <p className="text-sm font-bold text-slate-800">{creator.phoneNumber ? `${creator.countryCode || ''} ${creator.phoneNumber}` : '—'}</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">YouTube Subscribers</p>
-              <input
-                type="number"
-                min="0"
-                value={statsForm.youtubeSubscribers}
-                onChange={e => setStatsForm(f => ({ ...f, youtubeSubscribers: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
-              />
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Date of Birth</p>
+              <p className="text-sm font-bold text-slate-800">{fmtDate(creator.dob)}</p>
             </div>
+            {/* A creator can have Instagram/YouTube set from either place —
+                instagramUsername/youtubeUsername (picked at registration) or
+                instagramUrl/youtubeUrl (added later from Settings) — so show
+                the follower field whenever either one is present. */}
+            {(creator.instagramUsername || creator.instagramUrl) && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Instagram Followers{creator.instagramUsername ? ` (${creator.instagramUsername})` : ''}</p>
+                <input
+                  type="number"
+                  min="0"
+                  value={statsForm.instagramFollowers}
+                  onChange={e => setStatsForm(f => ({ ...f, instagramFollowers: e.target.value }))}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+            )}
+            {(creator.youtubeUsername || creator.youtubeUrl) && (
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">YouTube Subscribers{creator.youtubeUsername ? ` (${creator.youtubeUsername})` : ''}</p>
+                <input
+                  type="number"
+                  min="0"
+                  value={statsForm.youtubeSubscribers}
+                  onChange={e => setStatsForm(f => ({ ...f, youtubeSubscribers: e.target.value }))}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+                />
+              </div>
+            )}
+            {creator.facebookUsername && !creator.instagramUsername && !creator.instagramUrl && !creator.youtubeUsername && !creator.youtubeUrl && (
+              <div className="col-span-2 bg-slate-50 rounded-xl p-3">
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Facebook ({creator.facebookUsername})</p>
+                <p className="text-xs text-slate-500">No follower-count field for Facebook yet — only Instagram/YouTube feed the promotion pricing formula.</p>
+              </div>
+            )}
             <div className="bg-slate-50 rounded-xl p-3">
               <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">Registered On</p>
               <p className="text-sm font-bold text-slate-800">{fmtDate(creator.createdAt)}</p>

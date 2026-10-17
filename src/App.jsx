@@ -35,6 +35,7 @@ import FinanceDashboardPage from "./pages/finance/DashboardPage";
 import RevenuePage from "./pages/finance/RevenuePage";
 import VendorPaymentsPage from "./pages/finance/VendorPaymentsPage";
 import BookingPaymentsPage from "./pages/finance/BookingPaymentsPage";
+import PromotionPaymentsPage from "./pages/finance/PromotionPaymentsPage";
 import PayoutsPage from "./pages/finance/PayoutsPage";
 import FinanceRefundsPage from "./pages/finance/RefundsPage";
 import CancellationRefundsPage from "./pages/finance/CancellationRefundsPage";
@@ -393,6 +394,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="financeBookingPayments">
               <BookingPaymentsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="promotion-payments"
+          element={
+            <PagePermissionGuard pageId="financePromotionPayments">
+              <PromotionPaymentsPage />
             </PagePermissionGuard>
           }
         />

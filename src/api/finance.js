@@ -20,6 +20,10 @@ export const getBookingPaymentDetails = (id) =>
 
 export const deleteBookingPayment = (id) =>
   api.delete(`/finance/booking-payments/${id}`);
+export const getPromotionPayments = (params) =>
+  api.get("/finance/promotion-payments", params);
+export const getPromotionPaymentDetails = (id) =>
+  api.get(`/finance/promotion-payments/${id}`);
 export const getFinancePayouts = (params) =>
   api.get("/finance/settlements", params);
 export const getFinanceCommissions = (params) =>

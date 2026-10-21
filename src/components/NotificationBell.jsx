@@ -16,14 +16,27 @@ function timeAgo(dateStr) {
 }
 
 
+// This bell lives in the Admin portal, which has its own separate login/token
+// from Support and Finance (see ProtectedRoute/SupportAuthContext). Some
+// notification types (NEW_SUPPORT_TICKET, AD_CREATED, RECHARGE_RECEIVED) are
+// sent via notifyStaffForPage to whichever staff — including SUPER_ADMIN —
+// has page access, but they only ever link to Support/Finance-portal pages,
+// which a Support/Finance-less Admin session can't open (its ProtectedRoute
+// bounces to that portal's own /login). Deliberately left unmapped here so
+// those rows render as non-clickable instead of redirecting to a login
+// screen; they still show up correctly in the Support/Finance portals' own
+// bells, which ARE logged into those portals.
+// VENDOR_REGISTERED is the one deliberately dual-sent to both Admin's own
+// 'businesses' page and Support's 'supportApprovals' — only the Admin-portal
+// destination belongs here.
 const NOTIFICATION_ROUTES = {
-  VENDOR_REGISTERED: '/support/approvals',
-  AD_CREATED: '/support/ads',
-  NEW_SUPPORT_TICKET: '/support/tickets',
-  RECHARGE_RECEIVED: '/finance/recharge',
+  VENDOR_REGISTERED: '/admin/businesses',
 }
 
-const targetPathFor = (n) => n?.data?.link || NOTIFICATION_ROUTES[n?.type] || null
+// n.data?.link is a few deliberately cross-portal, so ignore anything the
+// backend attached only for the Support/Finance bells — Admin only
+// navigates on its own known-safe routes above.
+const targetPathFor = (n) => NOTIFICATION_ROUTES[n?.type] || null
 
 function NotificationRow({ n, onMarkRead, onNavigate }) {
   const targetPath = targetPathFor(n)

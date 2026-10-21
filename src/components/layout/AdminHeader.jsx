@@ -4,6 +4,28 @@ import { useStaffProfile } from '../../context/StaffProfileContext'
 import NotificationBell from '../NotificationBell'
 import ThemeToggle from '../ThemeToggle'
 
+// Mirrors SubdomainGuard.jsx's own hostname map — on one of the 4 real
+// production subdomains, a portal's /login is only reachable from that
+// portal's own hostname (SubdomainGuard bounces anything else back to the
+// current hostname's own portal). A relative "/finance/login" link clicked
+// from admin.jashanz.com therefore opened admin.jashanz.com/finance/login,
+// which SubdomainGuard immediately redirected to admin.jashanz.com/admin/login
+// instead of the Finance login — this builds the correct cross-subdomain URL
+// instead. Off those subdomains (dev/localhost, staging) there's no subdomain
+// split, so a relative path is correct there.
+const PORTAL_HOSTNAMES = {
+  support: 'support.jashanz.com',
+  finance: 'finance.jashanz.com',
+  admanager: 'admanager.jashanz.com',
+}
+const ENFORCED_HOSTNAMES = new Set(['admin.jashanz.com', ...Object.values(PORTAL_HOSTNAMES)])
+
+function portalLoginUrl(portal) {
+  const { hostname, protocol } = window.location
+  if (!ENFORCED_HOSTNAMES.has(hostname)) return `/${portal}/login`
+  return `${protocol}//${PORTAL_HOSTNAMES[portal]}/${portal}/login`
+}
+
 const TITLES = {
   '/admin/dashboard':     'Dashboard',
   '/admin/businesses':    'Business Management',
@@ -59,13 +81,13 @@ export default function AdminHeader({ onMenuClick }) {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Portal shortcuts — open in a new tab so the admin session here stays alive */}
         <div className="hidden md:flex items-center gap-2">
-          <a href="/support/login" target="_blank" rel="noopener noreferrer" className="jz-badge">
+          <a href={portalLoginUrl('support')} target="_blank" rel="noopener noreferrer" className="jz-badge">
             <span className="dot" style={{ background: '#12D19A', boxShadow: '0 0 6px #12D19A' }} />Support
           </a>
-          <a href="/finance/login" target="_blank" rel="noopener noreferrer" className="jz-badge">
+          <a href={portalLoginUrl('finance')} target="_blank" rel="noopener noreferrer" className="jz-badge">
             <span className="dot" style={{ background: '#FFB020', boxShadow: '0 0 6px #FFB020' }} />Finance
           </a>
-          <a href="/admanager/login" target="_blank" rel="noopener noreferrer" className="jz-badge">
+          <a href={portalLoginUrl('admanager')} target="_blank" rel="noopener noreferrer" className="jz-badge">
             <span className="dot" style={{ background: '#FF6FB0', boxShadow: '0 0 6px #FF6FB0' }} />AdManager
           </a>
         </div>

@@ -29,18 +29,42 @@ function DetailRow({ label, value, bold }) {
 
 const fmtRate = r => (r != null ? `${Number(r).toLocaleString('en-IN', { maximumFractionDigits: 2 })}%` : null)
 
-/* ── View order details + fee breakdown ── */
+function FormulaRow({ label, expr, value, bold, indent }) {
+  return (
+    <div className={`flex items-start justify-between gap-3 ${indent ? 'pl-3' : ''}`}>
+      <div className="min-w-0">
+        <p className={bold ? 'font-black text-slate-800 text-sm' : 'font-semibold text-slate-700 text-sm'}>{label}</p>
+        {expr && <p className="text-[11px] text-slate-400 font-mono mt-0.5">{expr}</p>}
+      </div>
+      <span className={`shrink-0 ${bold ? 'font-black text-slate-800' : 'font-semibold text-slate-700'}`}>{value}</span>
+    </div>
+  )
+}
+
+/* ── View order details + full fee-calculation formula breakdown ── */
 function ViewModal({ booking, onClose }) {
   const feesKnown = booking.platformFee != null && booking.markupAmount != null
   const unknownRefund = booking.refunded && booking.refundAmount == null
+  const rawKnown = booking.totalAmount != null
+
+  // Reconstruct the same steps calcCancellationDeduction runs server-side, so
+  // an admin can see exactly how platformFee/markupAmount were derived from
+  // this booking's own stored numbers, not just the final figures.
+  const preTaxAmount = rawKnown ? booking.totalAmount - (booking.gstAmount || 0) : null
+  const vendorShare = rawKnown ? (booking.vendorSubtotal || 0) + (booking.facilitiesTotal || 0) : null
+  const markupPreTax = rawKnown ? Math.max(0, preTaxAmount - vendorShare) : null
+  const paidProportion = rawKnown && booking.paymentOption === 'PARTIAL' && booking.totalAmount > 0
+    ? booking.grossAmount / booking.totalAmount
+    : 1
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h3 className="font-black text-slate-800">Booking Details</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconClose /></button>
         </div>
-        <div className="p-6 space-y-5">
+        <div className="overflow-y-auto p-6 space-y-5">
           <div className="space-y-1.5 text-sm">
             <DetailRow label="Booking ID" value={shortId(booking.sourceId)} />
             <DetailRow label="Payer" value={booking.payer?.name} />
@@ -54,27 +78,100 @@ function ViewModal({ booking, onClose }) {
             />
           </div>
 
-          <div className="bg-slate-50 rounded-xl p-4 space-y-1.5 text-sm">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Amount Breakdown</p>
-            <DetailRow label="Total booking amount" value={fmtMoney(booking.grossAmount)} bold />
-            <DetailRow
-              label={`Platform commission${booking.commissionRate != null ? ` (${fmtRate(booking.commissionRate)})` : ''}`}
-              value={feesKnown ? `- ${fmtMoney(booking.platformFee)}` : '—'}
-            />
-            <DetailRow
-              label={`Markup charges${booking.markupRate != null ? ` (${fmtRate(booking.markupRate)})` : ''}`}
-              value={feesKnown ? `- ${fmtMoney(booking.markupAmount)}` : '—'}
-            />
-            {!feesKnown && !unknownRefund && <DetailRow label="Total withheld" value={`- ${fmtMoney(booking.deductedFee)}`} />}
-            <p className="text-[10px] text-slate-400 pt-0.5">Rate applied at the time this booking was created.</p>
-            <div className="border-t border-slate-200 pt-1.5 mt-1.5">
+          {rawKnown && (
+            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Booking's Own Numbers</p>
+              <div className="space-y-1.5">
+                <DetailRow label="Total amount (incl. GST)" value={fmtMoney(booking.totalAmount)} />
+                <DetailRow label="GST amount" value={fmtMoney(booking.gstAmount)} />
+                <DetailRow label="Vendor's base price + facilities" value={fmtMoney(vendorShare)} />
+                <DetailRow label="Amount actually paid" value={fmtMoney(booking.grossAmount)} />
+                {booking.paymentOption === 'PARTIAL' && (
+                  <DetailRow label="Paid proportion (partial payment)" value={`${Math.round(paidProportion * 100)}%`} />
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-slate-50 rounded-xl p-4 space-y-4">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">How the Withheld Amount Was Calculated</p>
+
+            {rawKnown && feesKnown ? (
+              <>
+                <div className="space-y-2">
+                  <FormulaRow
+                    label="1. Pre-tax amount"
+                    expr={`totalAmount − gstAmount = ${fmtMoney(booking.totalAmount)} − ${fmtMoney(booking.gstAmount)}`}
+                    value={fmtMoney(preTaxAmount)}
+                  />
+                  <FormulaRow
+                    label="2. Vendor's share (what markup is NOT applied on top of again)"
+                    expr={`vendorSubtotal + facilitiesTotal = ${fmtMoney(booking.vendorSubtotal)} + ${fmtMoney(booking.facilitiesTotal)}`}
+                    value={fmtMoney(vendorShare)}
+                  />
+                  <FormulaRow
+                    label="3. Markup amount (platform's own revenue)"
+                    expr={`Pre-tax − vendor's share = ${fmtMoney(preTaxAmount)} − ${fmtMoney(vendorShare)}`}
+                    value={fmtMoney(markupPreTax)}
+                  />
+                  <FormulaRow
+                    label={`4. Markup rate shown (${fmtRate(booking.markupRate)})`}
+                    expr={`Markup amount ÷ vendor's base price = ${fmtMoney(markupPreTax)} ÷ ${fmtMoney(booking.vendorSubtotal)}`}
+                    value={fmtRate(booking.markupRate)}
+                    indent
+                  />
+                  <div className="border-t border-slate-200 my-2" />
+                  <FormulaRow
+                    label={`5. Platform commission (${fmtRate(booking.commissionRate)})`}
+                    expr={`Vendor's share × commission rate = ${fmtMoney(vendorShare)} × ${fmtRate(booking.commissionRate)}`}
+                    value={`- ${fmtMoney(booking.platformFee)}`}
+                  />
+                  <FormulaRow
+                    label="6. Markup withheld"
+                    expr="Same as step 3 — the markup amount is kept in full, never refunded to the customer"
+                    value={`- ${fmtMoney(booking.markupAmount)}`}
+                  />
+                  <div className="border-t border-slate-200 my-2" />
+                  <FormulaRow
+                    label="7. Total withheld"
+                    expr={`Commission + Markup = ${fmtMoney(booking.platformFee)} + ${fmtMoney(booking.markupAmount)}`}
+                    value={`- ${fmtMoney(booking.deductedFee)}`}
+                    bold
+                  />
+                  <FormulaRow
+                    label="8. Refund amount"
+                    expr={`Amount paid − Total withheld = ${fmtMoney(booking.grossAmount)} − ${fmtMoney(booking.deductedFee)}`}
+                    value={fmtMoney(booking.refundAmount)}
+                    bold
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 pt-1 border-t border-slate-200">
+                  Commission rate and markup rate are both the rate that was in effect when this booking was created — a later change to either rate never retroactively changes this booking's own figures.
+                </p>
+              </>
+            ) : unknownRefund ? (
+              <p className="text-sm text-slate-500">
+                Unknown — refunded outside this flow. This booking's payment is marked REFUNDED, but no cancellation-refund record exists for it, so the actual withheld amount (if any) isn't known here.
+              </p>
+            ) : (
+              <>
+                <DetailRow
+                  label={`Platform commission${booking.commissionRate != null ? ` (${fmtRate(booking.commissionRate)})` : ''}`}
+                  value="—"
+                />
+                <DetailRow
+                  label={`Markup charges${booking.markupRate != null ? ` (${fmtRate(booking.markupRate)})` : ''}`}
+                  value="—"
+                />
+                <DetailRow label="Total withheld" value={`- ${fmtMoney(booking.deductedFee)}`} />
+              </>
+            )}
+
+            <div className="border-t border-slate-200 pt-2 mt-1">
               {unknownRefund
                 ? <DetailRow label="Refunded amount" value="Unknown — refunded outside this flow" bold />
-                : <DetailRow label={booking.refunded ? 'Refunded amount' : 'Refundable amount'} value={fmtMoney(booking.refundAmount)} bold />}
+                : !rawKnown && <DetailRow label={booking.refunded ? 'Refunded amount' : 'Refundable amount'} value={fmtMoney(booking.refundAmount)} bold />}
             </div>
-            {unknownRefund && (
-              <p className="text-[10px] text-slate-400 pt-1">This booking's payment is marked REFUNDED, but no cancellation-refund record exists for it — it was likely refunded through the generic Refund Management flow before this page's fee-withholding logic applied.</p>
-            )}
           </div>
         </div>
       </div>

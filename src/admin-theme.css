@@ -199,6 +199,26 @@
 .jz-stat-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;}
 .jz-stat-value{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin-bottom:2px;}
 
+/* ---- Quill rich-text editor (Policies page) ---- */
+.jz-admin.jz-dark .quill-wrap .ql-toolbar.ql-snow{background:rgba(255,255,255,.04);border-color:var(--border)!important;}
+.jz-admin.jz-dark .quill-wrap .ql-container.ql-snow{background:transparent;border-color:var(--border)!important;}
+.jz-admin.jz-dark .quill-wrap .ql-editor{color:var(--ink);}
+.jz-admin.jz-dark .quill-wrap .ql-editor.ql-blank::before{color:var(--ink-faint);}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-stroke{stroke:var(--ink-dim);}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-fill,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-stroke.ql-fill{fill:var(--ink-dim);}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker{color:var(--ink-dim);}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker-options{background:#131b33;border-color:var(--border)!important;}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker-item{color:var(--ink-dim);}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker-item:hover,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker-label:hover{color:#fff;}
+.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker-item:hover .ql-stroke,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-picker-label:hover .ql-stroke{stroke:#fff;}
+.jz-admin.jz-dark .quill-wrap .ql-snow.ql-toolbar button:hover,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-toolbar button:hover,
+.jz-admin.jz-dark .quill-wrap .ql-snow.ql-toolbar button.ql-active,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-toolbar button.ql-active{color:#9FC0FF;}
+.jz-admin.jz-dark .quill-wrap .ql-snow.ql-toolbar button:hover .ql-stroke,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-toolbar button:hover .ql-stroke,
+.jz-admin.jz-dark .quill-wrap .ql-snow.ql-toolbar button.ql-active .ql-stroke,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-toolbar button.ql-active .ql-stroke{stroke:#9FC0FF;}
+.jz-admin.jz-dark .quill-wrap .ql-snow.ql-toolbar button:hover .ql-fill,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-toolbar button:hover .ql-fill,
+.jz-admin.jz-dark .quill-wrap .ql-snow.ql-toolbar button.ql-active .ql-fill,.jz-admin.jz-dark .quill-wrap .ql-snow .ql-toolbar button.ql-active .ql-fill{fill:#9FC0FF;}
+.jz-admin.jz-dark .quill-wrap .ql-snow a{color:#9FC0FF;}
+
 /* ---- Theme toggle button ---- */
 .jz-theme-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:11px;cursor:pointer;transition:background .15s;flex-shrink:0;}
 .jz-admin.jz-dark .jz-theme-toggle{background:rgba(255,255,255,0.05);border:1px solid var(--border-hi);color:var(--ink-dim);}

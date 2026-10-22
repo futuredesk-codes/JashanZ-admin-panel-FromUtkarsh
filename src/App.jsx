@@ -72,6 +72,7 @@ import AdManagerUsersPage from "./pages/admin/AdManagerUsersPage";
 import ReportsPage from "./pages/admin/ReportsPage";
 import AuditLogsPage from "./pages/admin/AuditLogsPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import PolicyEditorPage from "./pages/admin/PolicyEditorPage";
 
 const FINANCE_ROLES = ["FINANCE_ADMIN", "FINANCE_STAFF", "SUPER_ADMIN"];
 const SUPPORT_ROLES = ["SUPPORT_LEAD", "SUPPORT_AGENT", "SUPER_ADMIN", "ADMIN"];
@@ -247,6 +248,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="settings">
               <AdminSettingsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="policies"
+          element={
+            <PagePermissionGuard pageId="policies">
+              <PolicyEditorPage />
             </PagePermissionGuard>
           }
         />

@@ -268,7 +268,11 @@ function HistoryPanel() {
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-500'}`} title={r.failureReason || ''}>{r.status}</span>
                   </td>
                   <td className="px-4 py-3 text-[11px] text-slate-400 font-mono">{r.gatewayRefundId ? shortId(r.gatewayRefundId) : '—'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{r.initiatedBy}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {r.isAutomatic
+                      ? <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-info/10 text-info">System (Auto)</span>
+                      : <span className="text-slate-500">{r.initiatedBy}</span>}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
                   <td className="px-4 py-3">
                     <button onClick={() => setViewingRefund(r)} title="View details" className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"><IconEye /></button>

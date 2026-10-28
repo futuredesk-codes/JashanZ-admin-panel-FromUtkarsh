@@ -262,6 +262,7 @@ export default function CustomersPage() {
           <option value="">All Statuses</option>
           <option value="Active">Active</option>
           <option value="Suspended">Suspended</option>
+          <option value="Incomplete">Profile Incomplete</option>
         </select>
       </div>
 
@@ -300,7 +301,12 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">{cust.bookingsCount}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmtMoney(cust.totalSpent)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[cust.isActive ? 'Active' : 'Suspended']}`}>{cust.isActive ? 'Active' : 'Suspended'}</span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[cust.isActive ? 'Active' : 'Suspended']}`}>{cust.isActive ? 'Active' : 'Suspended'}</span>
+                      {!cust.isProfileComplete && (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500" title="Signed up but never finished Complete Profile">Profile Incomplete</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{fmtDate(cust.createdAt)}</td>
                   <td className="px-4 py-3">

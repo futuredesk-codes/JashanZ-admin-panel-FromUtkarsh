@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { getCancellationRefunds, initiateCancellationRefund, getCancellationRefundHistory } from '../../api/finance'
+import { getCancellationRefunds, initiateCancellationRefund, getCancellationRefundHistory, checkRefundStatus } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import { usePermissions } from '../../context/PermissionsContext'
 
@@ -17,6 +17,53 @@ const selectCls = 'bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text
 
 const IconClose = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
 const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+
+// Cashfree accepting a refund request (INITIATED) is NOT the same as the
+// money having reached the customer (PROCESSED, confirmed only by the
+// Cashfree refund webhook — can take 5-10 working days) — this badge makes
+// that distinction visible at a glance instead of a flat "Refunded" label
+// that used to mean "a refund was requested", not "money has moved".
+function RefundStageBadge({ status, gatewayStatus }) {
+  if (status === 'FAILED') {
+    return <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES.FAILED}`}>Failed</span>
+  }
+  if (status === 'PROCESSED') {
+    return <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES.PROCESSED}`}>Credited</span>
+  }
+  return (
+    <span
+      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES.INITIATED}`}
+      title={gatewayStatus === 'ONHOLD' ? 'On hold at the bank — may need manual follow-up' : 'Awaiting credit confirmation from Cashfree'}
+    >
+      {gatewayStatus === 'ONHOLD' ? 'On Hold' : 'Initiated'}
+    </span>
+  )
+}
+
+/* ── Confirm before manually pinging Cashfree for a refund's real status ── */
+function CheckStatusConfirmModal({ onConfirm, onCancel, loading }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h3 className="font-black text-slate-800 text-base mb-2">Check refund status with Cashfree?</h3>
+        <p className="text-sm text-slate-500 mb-3">
+          This refund is still <strong>Initiated</strong> — Cashfree accepted the refund request, but hasn't yet confirmed (via webhook) that the money actually reached the customer. Gateway refunds can take 5–10 working days to complete.
+        </p>
+        <p className="text-sm text-slate-500 mb-6">
+          This button exists as a manual fallback in case that webhook was missed or delayed. Clicking <strong>Check Status</strong> will ask Cashfree directly for this refund's current status and update it here if it has changed — it does not create a new refund or charge anything.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={onCancel} disabled={loading} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading} className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-info hover:bg-info/90 disabled:opacity-50">
+            {loading ? 'Checking…' : 'Check Status'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function DetailRow({ label, value, bold }) {
   return (
@@ -74,7 +121,15 @@ function ViewModal({ booking, onClose }) {
             <DetailRow label="Gateway order" value={booking.orderId || 'None (manual refund)'} />
             <DetailRow
               label="Status"
-              value={booking.refunded ? (booking.refundStatus === 'FAILED' ? 'Refund failed' : 'Refunded') : 'Not yet refunded'}
+              value={
+                !booking.refunded
+                  ? 'Not yet refunded'
+                  : booking.refundStatus === 'FAILED'
+                    ? 'Refund failed'
+                    : booking.refundStatus === 'PROCESSED'
+                      ? `Refund credited${booking.creditedAt ? ` (${fmtDate(booking.creditedAt)})` : ''}`
+                      : `Refund initiated — awaiting credit${booking.gatewayStatus === 'ONHOLD' ? ' (on hold at bank)' : ''}`
+              }
             />
           </div>
 
@@ -245,7 +300,8 @@ function RefundModal({ booking, onClose, onDone }) {
 }
 
 /* ── View a history row's full details ── */
-function HistoryViewModal({ refund, onClose }) {
+function HistoryViewModal({ refund, onClose, onCheckStatus, checking }) {
+  const canCheck = refund.status === 'INITIATED' && refund.method === 'GATEWAY'
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -262,11 +318,18 @@ function HistoryViewModal({ refund, onClose }) {
             <DetailRow label="Method" value={refund.method === 'GATEWAY' ? 'Payment gateway' : 'Manual'} />
             <DetailRow label="Gateway refund ID" value={refund.gatewayRefundId || 'None'} />
             <DetailRow label="Initiated by" value={refund.initiatedBy} />
-            <DetailRow label="Date" value={fmtDate(refund.createdAt)} />
+            <DetailRow label="Refund initiated" value={fmtDate(refund.createdAt)} />
             <DetailRow
               label="Status"
-              value={<span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[refund.status] || 'bg-slate-100 text-slate-500'}`}>{refund.status}</span>}
+              value={<RefundStageBadge status={refund.status} gatewayStatus={refund.gatewayStatus} />}
             />
+            {refund.gatewayStatus && refund.status !== 'PROCESSED' && (
+              <DetailRow label="Gateway status" value={refund.gatewayStatus} />
+            )}
+            {refund.status === 'PROCESSED' && refund.creditedAt && (
+              <DetailRow label="Credited on" value={fmtDate(refund.creditedAt)} />
+            )}
+            {refund.gatewayArn && <DetailRow label="Bank reference (ARN)" value={refund.gatewayArn} />}
             {refund.failureReason && <DetailRow label="Failure reason" value={refund.failureReason} />}
           </div>
 
@@ -277,6 +340,16 @@ function HistoryViewModal({ refund, onClose }) {
               <DetailRow label="Refunded amount" value={fmtMoney(refund.amount)} bold />
             </div>
           </div>
+
+          {canCheck && (
+            <button
+              onClick={onCheckStatus}
+              disabled={checking}
+              className="w-full bg-info/10 text-info rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-info/15 disabled:opacity-50"
+            >
+              {checking ? 'Checking with Cashfree…' : 'Check Status with Cashfree'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -291,6 +364,8 @@ function HistoryPanel() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [checkingId, setCheckingId] = useState(null)
+  const [confirmCheckId, setConfirmCheckId] = useState(null)
   const [filters, setFilters] = useState({ status: '', from: '', to: '' })
   const setF = (k, v) => { setFilters(f => ({ ...f, [k]: v })); setPage(1) }
   const invalidRange = Boolean(filters.from && filters.to && filters.from > filters.to)
@@ -316,6 +391,23 @@ function HistoryPanel() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- load()'s own setState calls are the fetch-on-filter-change trigger
   useEffect(() => { load() }, [load])
+
+  // Manual fallback for a refund stuck INITIATED because its Cashfree
+  // webhook was missed or delayed — asks Cashfree directly and reconciles.
+  // Gated behind CheckStatusConfirmModal (see confirmCheckId below) so staff
+  // see what the button does before an API call fires, even though the
+  // action itself is safe/non-destructive (read-only against Cashfree).
+  const handleCheckStatus = async (refundId) => {
+    setCheckingId(refundId)
+    try {
+      await checkRefundStatus(refundId)
+      load()
+    } catch {
+      // Non-fatal — the refund just stays however it was; staff can retry.
+    } finally {
+      setCheckingId(null)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -362,7 +454,7 @@ function HistoryPanel() {
                   <td className="px-4 py-3 text-xs text-slate-500 max-w-48 truncate" title={r.reason}>{r.reason}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{r.method === 'GATEWAY' ? 'Gateway' : 'Manual'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[r.status] || 'bg-slate-100 text-slate-500'}`} title={r.failureReason || ''}>{r.status}</span>
+                    <RefundStageBadge status={r.status} gatewayStatus={r.gatewayStatus} />
                   </td>
                   <td className="px-4 py-3 text-[11px] text-slate-400 font-mono">{r.gatewayRefundId ? shortId(r.gatewayRefundId) : '—'}</td>
                   <td className="px-4 py-3 text-xs">
@@ -372,7 +464,19 @@ function HistoryPanel() {
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(r.createdAt)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => setViewingRefund(r)} title="View details" className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"><IconEye /></button>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => setViewingRefund(r)} title="View details" className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"><IconEye /></button>
+                      {r.status === 'INITIATED' && r.method === 'GATEWAY' && (
+                        <button
+                          onClick={() => setConfirmCheckId(r._id)}
+                          disabled={checkingId === r._id}
+                          title="Ask Cashfree whether this refund has completed"
+                          className="text-[11px] font-bold text-info hover:underline disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {checkingId === r._id ? 'Checking…' : 'Check Status'}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -389,7 +493,27 @@ function HistoryPanel() {
         </div>
       </div>
 
-      {viewingRefund && <HistoryViewModal refund={viewingRefund} onClose={() => setViewingRefund(null)} />}
+      {viewingRefund && (
+        <HistoryViewModal
+          refund={viewingRefund}
+          onClose={() => setViewingRefund(null)}
+          checking={checkingId === viewingRefund._id}
+          onCheckStatus={() => setConfirmCheckId(viewingRefund._id)}
+        />
+      )}
+
+      {confirmCheckId && (
+        <CheckStatusConfirmModal
+          loading={checkingId === confirmCheckId}
+          onCancel={() => setConfirmCheckId(null)}
+          onConfirm={async () => {
+            const id = confirmCheckId
+            await handleCheckStatus(id)
+            setConfirmCheckId(null)
+            setViewingRefund(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -509,7 +633,7 @@ export default function CancellationRefundsPage() {
                     <div className="flex items-center gap-2">
                       <button onClick={() => setViewingBooking(b)} title="View details" className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200"><IconEye /></button>
                       {b.refunded
-                        ? <span className="text-[11px] font-bold text-slate-400">{b.refundStatus === 'FAILED' ? 'Failed' : 'Refunded'}</span>
+                        ? <RefundStageBadge status={b.refundStatus} gatewayStatus={b.gatewayStatus} />
                         : canInitiate
                           ? <button onClick={() => setModalBooking(b)} className="text-xs font-bold text-danger hover:underline">Refund</button>
                           : <span className="text-[11px] text-slate-300">—</span>}

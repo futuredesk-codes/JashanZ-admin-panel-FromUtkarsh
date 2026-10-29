@@ -3,6 +3,7 @@ import {
   getRefundablePayments,
   getRefunds,
   initiateRefund,
+  checkRefundStatus,
 } from "../../api/finance";
 import { ApiError } from "../../api/client";
 import { usePermissions } from "../../context/PermissionsContext";
@@ -23,6 +24,7 @@ const selectCls =
 
 const SOURCE_LABEL = {
   BOOKING: "Booking",
+  EVENT_BOOKING: "Event Ticket",
   WALLET_TXN: "Wallet Purchase",
   REGISTRATION_FEE: "Registration Fee",
 };
@@ -32,6 +34,60 @@ const STATUS_STYLES = {
   FAILED: "bg-danger/10 text-danger",
 };
 const REFUND_STATUSES = ["INITIATED", "PROCESSED", "FAILED"];
+
+// INITIATED here means "Cashfree accepted the refund request" — the money
+// hasn't necessarily reached the customer yet (can take 5-10 working days,
+// confirmed only by the Cashfree refund webhook). This badge makes that
+// distinction visible instead of implying INITIATED and PROCESSED are both
+// just "done, different flavor".
+/* ── Confirm before manually pinging Cashfree for a refund's real status ── */
+function CheckStatusConfirmModal({ onConfirm, onCancel, loading }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onCancel()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <h3 className="font-black text-slate-800 text-base mb-2">Check refund status with Cashfree?</h3>
+        <p className="text-sm text-slate-500 mb-3">
+          This refund is still <strong>Initiated</strong> — Cashfree accepted the refund request, but hasn't yet confirmed (via webhook) that the money actually reached the customer. Gateway refunds can take 5–10 working days to complete.
+        </p>
+        <p className="text-sm text-slate-500 mb-6">
+          This button exists as a manual fallback in case that webhook was missed or delayed. Clicking <strong>Check Status</strong> will ask Cashfree directly for this refund's current status and update it here if it has changed — it does not create a new refund or charge anything.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={onCancel} disabled={loading} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading} className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-info hover:bg-info/90 disabled:opacity-50">
+            {loading ? "Checking…" : "Check Status"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RefundStageBadge({ status, gatewayStatus }) {
+  if (status === "FAILED") {
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES.FAILED}`}>Failed</span>
+    );
+  }
+  if (status === "PROCESSED") {
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES.PROCESSED}`}>Credited</span>
+    );
+  }
+  return (
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES.INITIATED}`}
+      title={gatewayStatus === "ONHOLD" ? "On hold at the bank — may need manual follow-up" : "Awaiting credit confirmation from Cashfree"}
+    >
+      {gatewayStatus === "ONHOLD" ? "On Hold" : "Initiated"}
+    </span>
+  );
+}
 
 const IconClose = () => (
   <svg
@@ -85,7 +141,7 @@ function openRefundReceipt(r) {
       <tr class="total"><td class="k">Refund Amount</td><td class="v">${esc(fmtMoney(r.amount))}</td></tr>
     </table></div>
 
-    <p class="foot">System-generated receipt. ${r.status === "PROCESSED" ? "The refund has been processed." : "This refund is " + esc(r.status.toLowerCase()) + "."}</p>
+    <p class="foot">System-generated receipt. ${r.status === "PROCESSED" ? "The refund has been credited to the customer." : r.status === "FAILED" ? "This refund failed at the gateway." : "This refund has been initiated and is awaiting credit confirmation from the payment gateway (can take 5-10 working days)."}</p>
     <script>window.onload=function(){window.print()}</script>
     </body></html>`;
   const w = window.open("", "_blank");
@@ -260,9 +316,11 @@ function RefundablePanel({ onRefunded }) {
     setToast(
       refund?.status === "FAILED"
         ? "Gateway refused the refund — see Refund History."
-        : "Refund processed.",
+        : refund?.status === "PROCESSED"
+          ? "Refund processed."
+          : "Refund initiated — awaiting credit confirmation from the gateway (can take 5-10 working days).",
     );
-    setTimeout(() => setToast(""), 3500);
+    setTimeout(() => setToast(""), 5000);
     load();
     onRefunded();
   };
@@ -416,6 +474,8 @@ export default function RefundsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [checkingId, setCheckingId] = useState(null);
+  const [confirmCheckId, setConfirmCheckId] = useState(null);
   const [filters, setFilters] = useState({
     status: "",
     from: "",
@@ -461,6 +521,18 @@ export default function RefundsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleCheckStatus = async (refundId) => {
+    setCheckingId(refundId);
+    try {
+      await checkRefundStatus(refundId);
+      load();
+    } catch {
+      // Non-fatal — the refund just stays however it was; staff can retry.
+    } finally {
+      setCheckingId(null);
+    }
+  };
 
   const anyFilter = filters.status || filters.from || filters.to;
 
@@ -657,12 +729,7 @@ export default function RefundsPage() {
                           {r.method === "GATEWAY" ? "Gateway" : "Manual"}
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[r.status] || "bg-slate-100 text-slate-500"}`}
-                            title={r.failureReason || ""}
-                          >
-                            {r.status}
-                          </span>
+                          <RefundStageBadge status={r.status} gatewayStatus={r.gatewayStatus} />
                         </td>
                         <td className="px-4 py-3 text-[11px] text-slate-400 font-mono">
                           {r.gatewayRefundId ? shortId(r.gatewayRefundId) : "—"}
@@ -674,12 +741,24 @@ export default function RefundsPage() {
                           {fmtDate(r.createdAt)}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => openRefundReceipt(r)}
-                            className="text-xs font-bold text-brand hover:underline"
-                          >
-                            PDF
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openRefundReceipt(r)}
+                              className="text-xs font-bold text-brand hover:underline"
+                            >
+                              PDF
+                            </button>
+                            {r.status === "INITIATED" && r.method === "GATEWAY" && (
+                              <button
+                                onClick={() => setConfirmCheckId(r._id)}
+                                disabled={checkingId === r._id}
+                                title="Ask Cashfree whether this refund has completed"
+                                className="text-xs font-bold text-info hover:underline disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {checkingId === r._id ? "Checking…" : "Check Status"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -713,6 +792,18 @@ export default function RefundsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {confirmCheckId && (
+        <CheckStatusConfirmModal
+          loading={checkingId === confirmCheckId}
+          onCancel={() => setConfirmCheckId(null)}
+          onConfirm={async () => {
+            const id = confirmCheckId;
+            await handleCheckStatus(id);
+            setConfirmCheckId(null);
+          }}
+        />
       )}
     </div>
   );

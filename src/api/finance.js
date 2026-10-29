@@ -55,6 +55,10 @@ export const initiateCancellationRefund = (payload) =>
   api.post("/finance/cancellation-refunds", payload);
 export const getCancellationRefundHistory = (params) =>
   api.get("/finance/cancellation-refunds/history", params);
+// Manual fallback for an INITIATED refund whose Cashfree webhook was missed
+// or delayed — asks Cashfree directly and reconciles local status with it.
+export const checkRefundStatus = (refundId) =>
+  api.post(`/finance/refunds/${refundId}/check-status`);
 export const getWalletTransactions = (params) =>
   api.get("/finance/transactions", params);
 export const getLeadRecharges = (params) =>

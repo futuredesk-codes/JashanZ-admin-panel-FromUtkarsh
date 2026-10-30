@@ -17,6 +17,8 @@ const SETTLEMENT_STATUS_STYLES = {
   FAILED: 'bg-danger/10 text-danger',
 }
 
+const selectCls = 'bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20'
+
 /* ── Icons ── */
 const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -28,16 +30,42 @@ function VendorDetailModal({ row, onClose, onMarkPaid }) {
   const [commissions, setCommissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [dateFilter, setDateFilter] = useState({ from: '', to: '' })
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const invalidRange = Boolean(dateFilter.from && dateFilter.to && dateFilter.from > dateFilter.to)
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fetch's own setState calls are the fetch-on-mount trigger, not a derived-render value
+    if (invalidRange) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fetch's own setState calls are the fetch-on-mount/filter-change trigger, not a derived-render value
     setLoading(true)
     setError('')
-    getVendorPendingCommissions(row.businessId)
+    setSelectedIds(new Set())
+    const params = {}
+    if (dateFilter.from) params.from = dateFilter.from
+    if (dateFilter.to) params.to = dateFilter.to
+    getVendorPendingCommissions(row.businessId, params)
       .then(data => setCommissions(data.commissions || []))
       .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load pending bookings.'))
       .finally(() => setLoading(false))
-  }, [row.businessId])
+  }, [row.businessId, dateFilter.from, dateFilter.to, invalidRange])
+
+  const filteredTotal = commissions.reduce((sum, c) => sum + (c.vendorRevenue || 0), 0)
+  const anyDateFilter = dateFilter.from || dateFilter.to
+
+  const toggleOne = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allSelected = commissions.length > 0 && selectedIds.size === commissions.length
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(commissions.map(c => c._id)))
+  }
+  const selectedCommissions = commissions.filter(c => selectedIds.has(c._id))
+  const selectedTotal = selectedCommissions.reduce((sum, c) => sum + (c.vendorRevenue || 0), 0)
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -100,18 +128,36 @@ function VendorDetailModal({ row, onClose, onMarkPaid }) {
 
           {/* Bookings making up the pending total */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Bookings in This Pending Total</p>
-            {loading ? (
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Bookings in This Pending Total</p>
+              <div className="flex items-center gap-2">
+                <input type="date" max={dateFilter.to || undefined} className={selectCls} value={dateFilter.from} onChange={e => setDateFilter(f => ({ ...f, from: e.target.value }))} />
+                <span className="text-xs text-slate-400">to</span>
+                <input type="date" min={dateFilter.from || undefined} className={selectCls} value={dateFilter.to} onChange={e => setDateFilter(f => ({ ...f, to: e.target.value }))} />
+                {anyDateFilter && (
+                  <button onClick={() => setDateFilter({ from: '', to: '' })} className="text-xs font-semibold text-slate-400 hover:text-slate-600">Clear</button>
+                )}
+              </div>
+            </div>
+            {invalidRange ? (
+              <p className="text-sm text-danger py-2">"From" date is after "To" date.</p>
+            ) : loading ? (
               <p className="text-sm text-slate-400 py-8 text-center">Loading bookings...</p>
             ) : error ? (
               <p className="text-sm text-danger py-4">{error}</p>
             ) : commissions.length === 0 ? (
-              <p className="text-sm text-slate-400 py-8 text-center">No pending bookings for this vendor.</p>
+              <p className="text-sm text-slate-400 py-8 text-center">{anyDateFilter ? 'No pending bookings in this date range.' : 'No pending bookings for this vendor.'}</p>
             ) : (
               <div className="overflow-x-auto">
+                {anyDateFilter && (
+                  <p className="text-xs text-slate-400 mb-2">{commissions.length} booking(s) · {fmtMoney(filteredTotal)} in this range</p>
+                )}
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left">
+                      <th className="pb-2 pr-2 w-8">
+                        <input type="checkbox" checked={allSelected} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-brand cursor-pointer" />
+                      </th>
                       {['Customer', 'Booking Date', 'Booking Amount', 'Commission', 'Vendor Payout', 'Completed On'].map(h => (
                         <th key={h} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide pb-2 whitespace-nowrap">{h}</th>
                       ))}
@@ -119,7 +165,10 @@ function VendorDetailModal({ row, onClose, onMarkPaid }) {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {commissions.map(c => (
-                      <tr key={c._id}>
+                      <tr key={c._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => toggleOne(c._id)}>
+                        <td className="py-2.5 pr-2" onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={selectedIds.has(c._id)} onChange={() => toggleOne(c._id)} className="w-3.5 h-3.5 rounded accent-brand cursor-pointer" />
+                        </td>
                         <td className="py-2.5 pr-3 font-semibold text-slate-700 whitespace-nowrap">{c.booking?.user?.name || c.booking?.bookerBusiness?.username || '—'}</td>
                         <td className="py-2.5 pr-3 text-slate-500 whitespace-nowrap">{fmtDate(c.booking?.bookingDate)}</td>
                         <td className="py-2.5 pr-3 text-slate-700 whitespace-nowrap">{fmtMoney(c.bookingAmount)}</td>
@@ -137,21 +186,31 @@ function VendorDetailModal({ row, onClose, onMarkPaid }) {
 
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50 shrink-0">
           <button onClick={onClose} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200">Close</button>
-          <button
-            onClick={() => onMarkPaid(row)}
-            disabled={row.pendingAmount <= 0}
-            className="bg-success text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-success/90 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Mark Payment as Done
-          </button>
+          <div className="flex items-center gap-3">
+            {selectedIds.size > 0 && (
+              <span className="text-xs font-semibold text-slate-500">{selectedIds.size} selected · {fmtMoney(selectedTotal)}</span>
+            )}
+            <button
+              onClick={() => onMarkPaid(row, selectedIds.size > 0 ? selectedCommissions : null)}
+              disabled={row.pendingAmount <= 0}
+              className="bg-success text-white rounded-xl px-4 py-2 text-sm font-bold hover:bg-success/90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {selectedIds.size > 0 ? `Pay ${selectedIds.size} Selected Booking(s)` : 'Mark Payment as Done'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-/* ── Mark Payment as Done modal ── */
-function MarkPaidModal({ row, onClose, onDone }) {
+/* ── Mark Payment as Done modal — either a free-typed amount (oldest-pending
+   auto-bundle, up to that amount) or, when selectedCommissions is passed
+   from the detail modal's checkboxes, those exact bookings only. ── */
+function MarkPaidModal({ row, selectedCommissions, onClose, onDone }) {
+  const isSelectionMode = Boolean(selectedCommissions?.length)
+  const selectedTotal = isSelectionMode ? selectedCommissions.reduce((sum, c) => sum + (c.vendorRevenue || 0), 0) : 0
+
   const [amount, setAmount] = useState(String(row.pendingAmount))
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10))
   const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER')
@@ -162,14 +221,20 @@ function MarkPaidModal({ row, onClose, onDone }) {
   const [result, setResult] = useState(null)
 
   const handleSubmit = async () => {
-    const amt = Number(amount)
-    if (Number.isNaN(amt) || amt <= 0) { setError('Enter a valid amount.'); return }
-    if (amt > row.pendingAmount) { setError(`Amount can't exceed the pending total of ${fmtMoney(row.pendingAmount)}.`); return }
+    let payload
+    if (isSelectionMode) {
+      payload = { commissionIds: selectedCommissions.map(c => c._id) }
+    } else {
+      const amt = Number(amount)
+      if (Number.isNaN(amt) || amt <= 0) { setError('Enter a valid amount.'); return }
+      if (amt > row.pendingAmount) { setError(`Amount can't exceed the pending total of ${fmtMoney(row.pendingAmount)}.`); return }
+      payload = { amount: amt }
+    }
     setSubmitting(true)
     setError('')
     try {
       const data = await markVendorPaymentDone(row.businessId, {
-        amount: amt,
+        ...payload,
         paidAt: paidAt || undefined,
         paymentMethod,
         note: note.trim() || undefined,
@@ -194,7 +259,8 @@ function MarkPaidModal({ row, onClose, onDone }) {
             <h3 className="font-black text-slate-800 text-base">Payment Recorded</h3>
             <p className="text-sm text-slate-500 mt-1">
               {fmtMoney(result.settledAmount)} marked as paid to {row.business.username}.
-              {result.remainingPending > 0 && ` ${result.remainingPending} booking(s) still pending — amount didn't cover the full total.`}
+              {result.remainingPending > 0 && !isSelectionMode && ` ${result.remainingPending} booking(s) still pending — amount didn't cover the full total.`}
+              {result.remainingPending > 0 && isSelectionMode && ` ${result.remainingPending} other booking(s) for this vendor are still pending.`}
             </p>
           </div>
           <button onClick={onDone} className="w-full bg-brand text-white rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-brand/90">Done</button>
@@ -211,17 +277,30 @@ function MarkPaidModal({ row, onClose, onDone }) {
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconX /></button>
         </div>
         <div className="p-6 space-y-4">
-          <p className="text-xs text-slate-400">
-            Paying <span className="font-bold text-slate-700">{row.business.username}</span> — pending total {fmtMoney(row.pendingAmount)} across {row.pendingCount} booking(s).
-            Entering less than the full amount bundles only the oldest bookings that fit (never splits a single booking's commission).
-          </p>
+          {isSelectionMode ? (
+            <p className="text-xs text-slate-400">
+              Paying <span className="font-bold text-slate-700">{row.business.username}</span> for <span className="font-bold text-slate-700">{selectedCommissions.length} manually selected booking(s)</span>, totalling {fmtMoney(selectedTotal)}.
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400">
+              Paying <span className="font-bold text-slate-700">{row.business.username}</span> — pending total {fmtMoney(row.pendingAmount)} across {row.pendingCount} booking(s).
+              Entering less than the full amount bundles only the oldest bookings that fit (never splits a single booking's commission).
+            </p>
+          )}
 
           {error && <div className="bg-danger/8 text-danger rounded-xl px-3 py-2.5 text-xs font-semibold">{error}</div>}
 
-          <div>
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Amount (₹)</label>
-            <input type="number" min="1" max={row.pendingAmount} className={inputCls} value={amount} onChange={e => setAmount(e.target.value)} />
-          </div>
+          {isSelectionMode ? (
+            <div>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Amount (₹)</label>
+              <div className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700">{fmtMoney(selectedTotal)}</div>
+            </div>
+          ) : (
+            <div>
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Amount (₹)</label>
+              <input type="number" min="1" max={row.pendingAmount} className={inputCls} value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+          )}
           <div>
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Payment Date</label>
             <input type="date" className={inputCls} value={paidAt} onChange={e => setPaidAt(e.target.value)} />
@@ -320,7 +399,7 @@ function HistoryModal({ row, onClose }) {
 /* ── Main Page ── */
 export default function VendorSettlementsPage() {
   const { can } = usePermissions()
-  const canAct = can('adminFinance', 'WRITE')
+  const canAct = can('financeVendorSettlements', 'FULL')
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -332,6 +411,7 @@ export default function VendorSettlementsPage() {
 
   const [viewRow, setViewRow] = useState(null)
   const [payRow, setPayRow] = useState(null)
+  const [paySelectedCommissions, setPaySelectedCommissions] = useState(null)
   const [historyRow, setHistoryRow] = useState(null)
 
   useEffect(() => {
@@ -353,21 +433,23 @@ export default function VendorSettlementsPage() {
 
   const totalPending = items.reduce((sum, r) => sum + r.pendingAmount, 0)
 
-  const handleMarkPaidFromView = (row) => {
+  const handleMarkPaidFromView = (row, selectedCommissions) => {
     setViewRow(null)
     setPayRow(row)
+    setPaySelectedCommissions(selectedCommissions)
   }
 
   const handlePaymentDone = () => {
     setPayRow(null)
+    setPaySelectedCommissions(null)
     load()
   }
 
   return (
     <div className="space-y-5 pb-6">
       <div>
-        <h1 className="text-xl font-black text-slate-800">Vendor Settlements</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Every vendor with a pending payout — view their bookings, record a payment, or check their settlement history</p>
+        <h1 className="text-xl font-black text-slate-800">Pending Vendor Settlements</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Every vendor with a pending payout — view their bookings (filterable by date), record a payment, or check their settlement history</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -453,7 +535,14 @@ export default function VendorSettlementsPage() {
         />
       )}
 
-      {payRow && <MarkPaidModal row={payRow} onClose={() => setPayRow(null)} onDone={handlePaymentDone} />}
+      {payRow && (
+        <MarkPaidModal
+          row={payRow}
+          selectedCommissions={paySelectedCommissions}
+          onClose={() => { setPayRow(null); setPaySelectedCommissions(null) }}
+          onDone={handlePaymentDone}
+        />
+      )}
 
       {historyRow && <HistoryModal row={historyRow} onClose={() => setHistoryRow(null)} />}
     </div>

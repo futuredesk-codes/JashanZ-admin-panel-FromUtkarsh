@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { getFinancePayouts } from '../../api/finance'
+import { getFinancePayouts, getFinancePayoutsByVendor } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import SearchableSelect from '../../components/SearchableSelect'
 
@@ -94,7 +94,7 @@ function PayoutDetailModal({ item, onClose }) {
     ['Created', fmtDateTime(item.createdAt)],
   ]
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
@@ -159,6 +159,160 @@ function PayoutDetailModal({ item, onClose }) {
   )
 }
 
+/* ── All settled payouts for one vendor — opened by clicking a row in the
+   "Group by Vendor" summary table. Reuses the same settlements list
+   endpoint, narrowed to this vendor via businessId. ── */
+function VendorPayoutsModal({ vendor, params, onClose, onViewPayout }) {
+  const [items, setItems] = useState([])
+  const [pagination, setPagination] = useState({ total: 0, page: 1, hasNextPage: false })
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fetch's own setState calls are the fetch-on-mount/page-change trigger, not a derived-render value
+    setLoading(true)
+    setError('')
+    getFinancePayouts({ ...params, businessId: vendor.id, page, limit: 20 })
+      .then(data => {
+        setItems(data.items || [])
+        setPagination(data.pagination || { total: 0, page: 1, hasNextPage: false })
+      })
+      .catch(err => setError(err instanceof ApiError ? err.message : "Could not load this vendor's payouts."))
+      .finally(() => setLoading(false))
+  }, [vendor.id, params, page])
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">{vendor.name}</h3>
+            <p className="text-xs text-slate-400">{vendor.category || '—'} · All payouts</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconClose /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-6">
+          {loading ? (
+            <p className="text-sm text-slate-400 py-8 text-center">Loading payouts...</p>
+          ) : error ? (
+            <p className="text-sm text-danger py-4">{error}</p>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-8 text-center">No payouts for this vendor match the current filters.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left">
+                    {['Amount', 'Bookings', 'Payout Method', 'Settlement Date', 'Status', ''].map(h => (
+                      <th key={h} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide pb-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map(v => (
+                    <tr key={v._id}>
+                      <td className="py-2.5 pr-3 font-bold text-slate-800 whitespace-nowrap">{fmtMoney(v.amount)}</td>
+                      <td className="py-2.5 pr-3 text-slate-500 whitespace-nowrap" title={(v.bookingRefs || []).join(', ')}>{v.bookingCount}</td>
+                      <td className="py-2.5 pr-3 text-slate-500 whitespace-nowrap">
+                        {v.payoutMethod}
+                        {v.bank?.accountMasked && <span className="text-slate-400"> · {v.bank.accountMasked}</span>}
+                      </td>
+                      <td className="py-2.5 pr-3 text-slate-500 whitespace-nowrap">{fmtDate(v.settlementDate)}</td>
+                      <td className="py-2.5 pr-3 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[v.status] || 'bg-slate-100 text-slate-500'}`}>{v.status}</span></td>
+                      <td className="py-2.5">
+                        <button onClick={() => onViewPayout(v)} className="text-xs font-bold text-brand hover:underline">View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 text-xs text-slate-400 shrink-0">
+          <span>Showing {items.length} of {pagination.total} payouts</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
+            <span className="font-semibold text-slate-500">Page {pagination.page}</span>
+            <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Per-vendor summary table — "Group by Vendor" view: how many bookings
+   each vendor has been paid for and how much, across all their settlements,
+   under the same filters as the flat list above. ── */
+function VendorPayoutsTable({ params, invalidRange, onViewVendor }) {
+  const [items, setItems] = useState([])
+  const [pagination, setPagination] = useState({ total: 0, page: 1, hasNextPage: false })
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- filters changing underneath this view should reset it back to page 1, not keep an out-of-range page
+  useEffect(() => { setPage(1) }, [params])
+
+  useEffect(() => {
+    if (invalidRange) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fetch's own setState calls are the fetch-on-filter/page-change trigger, not a derived-render value
+    setLoading(true)
+    setError('')
+    getFinancePayoutsByVendor({ ...params, page })
+      .then(data => {
+        setItems(data.items || [])
+        setPagination(data.pagination || { total: 0, page: 1, hasNextPage: false })
+      })
+      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load vendor payout summary.'))
+      .finally(() => setLoading(false))
+  }, [params, page, invalidRange])
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50/70 border-b border-slate-100">
+            <tr>
+              {['Vendor', 'Category', 'Bookings Paid', 'Settlements', 'Total Amount Paid', 'Last Payout'].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {error ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-danger text-sm font-semibold">{error}</td></tr>
+            ) : loading ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-400 text-sm">No vendors match your filters</td></tr>
+            ) : items.map(v => (
+              <tr key={v.vendor.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => onViewVendor(v.vendor)}>
+                <td className="px-4 py-3 font-bold text-xs text-slate-800 whitespace-nowrap">{v.vendor.name}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{v.vendor.category || '—'}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{v.bookingCount}</td>
+                <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{v.settlementCount}</td>
+                <td className="px-4 py-3 text-sm font-black text-success whitespace-nowrap">{fmtMoney(v.totalAmount)}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(v.lastPayoutAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
+        <span>Showing {items.length} of {pagination.total} vendors</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
+          <span className="font-semibold text-slate-500">Page {pagination.page}</span>
+          <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PayoutsPage() {
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, hasNextPage: false })
@@ -167,6 +321,8 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewItem, setViewItem] = useState(null)
+  const [groupByVendor, setGroupByVendor] = useState(false)
+  const [viewingVendor, setViewingVendor] = useState(null)
 
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ status: '', city: '', category: '', from: '', to: '' })
@@ -174,16 +330,16 @@ export default function PayoutsPage() {
   const invalidRange = Boolean(filters.from && filters.to && filters.from > filters.to)
 
   const params = useMemo(() => {
-    const p = { page, limit: 20 }
+    const p = {}
     Object.entries(filters).forEach(([k, v]) => { if (v) p[k] = v })
     return p
-  }, [page, filters])
+  }, [filters])
 
   const load = useCallback(() => {
-    if (invalidRange) return
+    if (invalidRange || groupByVendor) return
     setLoading(true)
     setError('')
-    getFinancePayouts(params)
+    getFinancePayouts({ ...params, page, limit: 20 })
       .then(data => {
         setItems(data.items || [])
         setPagination(data.pagination || { total: 0, page: 1, hasNextPage: false })
@@ -192,7 +348,7 @@ export default function PayoutsPage() {
       })
       .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load payout records.'))
       .finally(() => setLoading(false))
-  }, [params, invalidRange])
+  }, [params, page, invalidRange, groupByVendor])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- load()'s own setState calls are the fetch-on-filter-change trigger, not a derived-render value
   useEffect(() => { load() }, [load])
@@ -201,9 +357,29 @@ export default function PayoutsPage() {
 
   return (
     <div className="space-y-5 pb-6">
-      <div>
-        <h1 className="text-xl font-black text-slate-800">Payouts &amp; Settlement Tracking</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Vendor payout lifecycle — bank transfers, status, GST breakdown, and receipts</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-black text-slate-800">Vendor Settlement Tracking</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {groupByVendor
+              ? 'Per vendor — bookings paid for and total amount settled so far'
+              : 'Vendor payout lifecycle — bank transfers, status, GST breakdown, and receipts'}
+          </p>
+        </div>
+        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shrink-0">
+          <button
+            onClick={() => setGroupByVendor(false)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${!groupByVendor ? 'bg-brand text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            All Payouts
+          </button>
+          <button
+            onClick={() => setGroupByVendor(true)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${groupByVendor ? 'bg-brand text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            Group by Vendor
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap items-center gap-3">
@@ -235,63 +411,75 @@ export default function PayoutsPage() {
       </div>
 
       <p className="text-xs text-slate-400 -mt-2">
-        Read-only. Creating settlements and marking payouts transferred is done from the Admin portal. GST is derived at {gstRate}% on the platform commission for reconciliation — it isn't stored per settlement.
+        Read-only history of settlements already recorded — to pay a vendor, use Pending Vendor Settlements. GST is derived at {gstRate}% on the platform commission for reconciliation — it isn't stored per settlement.
       </p>
 
       {invalidRange && <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">"From" date is after "To" date.</div>}
       {error && <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">{error}</div>}
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/70 border-b border-slate-100">
-              <tr>
-                {['Vendor', 'Amount', 'Bookings', 'Payout Method', 'Settlement Date', 'Status', 'GST', 'Receipt'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
-              ) : items.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">No payout records match your filters</td></tr>
-              ) : items.map(v => (
-                <tr key={v._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setViewItem(v)}>
-                  <td className="px-4 py-3">
-                    <p className="font-bold text-xs text-slate-800 leading-tight">{v.vendor?.name}</p>
-                    <p className="text-[10px] text-slate-300 font-mono">{v.vendor?.id}</p>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{fmtMoney(v.amount)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap" title={(v.bookingRefs || []).join(', ')}>{v.bookingCount}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
-                    {v.payoutMethod}
-                    {v.bank?.accountMasked && <span className="text-slate-400"> · {v.bank.accountMasked}</span>}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(v.settlementDate)}</td>
-                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[v.status] || 'bg-slate-100 text-slate-500'}`}>{v.status}</span></td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtMoney(v.gst?.gstOnCommission)}</td>
-                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => openReceipt(v)} className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline">
-                      <IconReceipt /> PDF
-                    </button>
-                  </td>
+      {groupByVendor ? (
+        <VendorPayoutsTable params={params} invalidRange={invalidRange} onViewVendor={setViewingVendor} />
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/70 border-b border-slate-100">
+                <tr>
+                  {['Vendor', 'Amount', 'Bookings', 'Payout Method', 'Settlement Date', 'Status', 'GST', 'Receipt'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
-          <span>Showing {items.length} of {pagination.total} payouts</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
-            <span className="font-semibold text-slate-500">Page {pagination.page}</span>
-            <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
+                ) : items.length === 0 ? (
+                  <tr><td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">No payout records match your filters</td></tr>
+                ) : items.map(v => (
+                  <tr key={v._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setViewItem(v)}>
+                    <td className="px-4 py-3">
+                      <p className="font-bold text-xs text-slate-800 leading-tight">{v.vendor?.name}</p>
+                      <p className="text-[10px] text-slate-300 font-mono">{v.vendor?.id}</p>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{fmtMoney(v.amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap" title={(v.bookingRefs || []).join(', ')}>{v.bookingCount}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                      {v.payoutMethod}
+                      {v.bank?.accountMasked && <span className="text-slate-400"> · {v.bank.accountMasked}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(v.settlementDate)}</td>
+                    <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[v.status] || 'bg-slate-100 text-slate-500'}`}>{v.status}</span></td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtMoney(v.gst?.gstOnCommission)}</td>
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <button onClick={() => openReceipt(v)} className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline">
+                        <IconReceipt /> PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
+            <span>Showing {items.length} of {pagination.total} payouts</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
+              <span className="font-semibold text-slate-500">Page {pagination.page}</span>
+              <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {viewItem && <PayoutDetailModal item={viewItem} onClose={() => setViewItem(null)} />}
+      {viewingVendor && (
+        <VendorPayoutsModal
+          vendor={viewingVendor}
+          params={params}
+          onClose={() => setViewingVendor(null)}
+          onViewPayout={setViewItem}
+        />
+      )}
     </div>
   )
 }

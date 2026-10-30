@@ -37,6 +37,7 @@ import VendorPaymentsPage from "./pages/finance/VendorPaymentsPage";
 import BookingPaymentsPage from "./pages/finance/BookingPaymentsPage";
 import PromotionPaymentsPage from "./pages/finance/PromotionPaymentsPage";
 import PayoutsPage from "./pages/finance/PayoutsPage";
+import VendorSettlementsPage from "./pages/finance/VendorSettlementsPage";
 import FinanceRefundsPage from "./pages/finance/RefundsPage";
 import CancellationRefundsPage from "./pages/finance/CancellationRefundsPage";
 import FinanceReportsPage from "./pages/finance/ReportsPage";
@@ -65,7 +66,6 @@ import CustomersPage from "./pages/admin/CustomersPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import CirclesPage from "./pages/admin/CirclesPage";
 import FinancePage from "./pages/admin/FinancePage";
-import VendorSettlementsPage from "./pages/admin/VendorSettlementsPage";
 import SupportUsersPage from "./pages/admin/SupportUsersPage";
 import FinanceUsersPage from "./pages/admin/FinanceUsersPage";
 import AdManagerUsersPage from "./pages/admin/AdManagerUsersPage";
@@ -185,15 +185,6 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="adminFinance">
               <FinancePage />
-            </PagePermissionGuard>
-          }
-        />
-
-        <Route
-          path="vendor-settlements"
-          element={
-            <PagePermissionGuard pageId="adminFinance">
-              <VendorSettlementsPage />
             </PagePermissionGuard>
           }
         />
@@ -458,6 +449,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="financeSettlements">
               <PayoutsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="vendor-settlements"
+          element={
+            <PagePermissionGuard pageId="financeVendorSettlements">
+              <VendorSettlementsPage />
             </PagePermissionGuard>
           }
         />

@@ -15,6 +15,8 @@ export const getVendorPayments = (params) =>
   api.get("/finance/vendor-payments", params);
 export const getBookingPayments = (params) =>
   api.get("/finance/booking-payments", params);
+export const getBookingPaymentsByVendor = (params) =>
+  api.get("/finance/booking-payments/by-vendor", params);
 export const getBookingPaymentDetails = (id) =>
   api.get(`/finance/booking-payments/${id}`);
 
@@ -26,6 +28,8 @@ export const getPromotionPaymentDetails = (id) =>
   api.get(`/finance/promotion-payments/${id}`);
 export const getFinancePayouts = (params) =>
   api.get("/finance/settlements", params);
+export const getFinancePayoutsByVendor = (params) =>
+  api.get("/finance/settlements/by-vendor", params);
 export const getFinanceCommissions = (params) =>
   api.get("/finance/commissions", params);
 export const getFinanceCommissionRates = () =>
@@ -93,15 +97,15 @@ export const markSettlementTransferred = (id, razorpayPayoutId) =>
 export const deleteSettlement = (id) =>
   api.post(`/admin/settlement/${id}/delete`);
 
-/* ── Vendor Settlements page — one row per vendor with pending commissions ── */
+/* ── Vendor Settlements page (Finance portal) — one row per vendor with pending commissions ── */
 export const getVendorSettlementSummary = (params) =>
-  api.get("/admin/vendor-settlements", params);
-export const getVendorPendingCommissions = (businessId) =>
-  api.get(`/admin/vendor-settlements/${businessId}/pending`);
+  api.get("/finance/vendor-settlements", params);
+export const getVendorPendingCommissions = (businessId, params) =>
+  api.get(`/finance/vendor-settlements/${businessId}/pending`, params);
 export const getVendorSettlementHistory = (businessId, params) =>
-  api.get(`/admin/vendor-settlements/${businessId}/history`, params);
+  api.get(`/finance/vendor-settlements/${businessId}/history`, params);
 export const markVendorPaymentDone = (businessId, payload) =>
-  api.post(`/admin/vendor-settlements/${businessId}/mark-paid`, payload);
+  api.post(`/finance/vendor-settlements/${businessId}/mark-paid`, payload);
 
 export const setRegistrationPayment = (businessId, isPaid) =>
   api.post(`/admin/business/${businessId}/registration-payment`, { isPaid });

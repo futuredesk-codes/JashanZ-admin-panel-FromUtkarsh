@@ -81,7 +81,7 @@ function SupportLayoutInner() {
         <header className="jz-sup-topbar sticky top-0 z-30 px-8 h-[73px] flex items-center gap-4 shrink-0">
           <h1 className="jz-header-title flex-1 text-lg font-bold" style={{ fontFamily: "Outfit, sans-serif" }}>{title}</h1>
           <ThemeToggle />
-          <NotificationBell />
+          <NotificationBell portal="support" />
           <button onClick={() => navigate('/support/profile')} className="jz-sup-who transition-colors" title="My profile">
             {profile?.profileImg
               ? <img src={profile.profileImg} alt={displayName} className="w-8 h-8 rounded-full object-cover shrink-0" />

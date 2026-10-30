@@ -96,7 +96,7 @@ export default function AdminHeader({ onMenuClick }) {
         <ThemeToggle />
 
         {/* Notifications */}
-        <NotificationBell />
+        <NotificationBell portal="admin" />
 
         {/* Profile — opens the profile page */}
         <button onClick={() => navigate('/admin/profile')} className="jz-user" title="My profile">

@@ -91,7 +91,7 @@ function FinanceLayoutInner() {
       <div className="flex-1 flex flex-col ml-[250px] min-w-0 overflow-hidden">
         <header className="jz-fin-topbar sticky top-0 z-30 px-8 h-16 flex items-center gap-4 shrink-0">
           <h1 className="flex-1 text-[19px] font-bold text-slate-800">{title}</h1>
-          <NotificationBell />
+          <NotificationBell portal="finance" />
           <button onClick={() => navigate('/finance/profile')} className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-[11px] border border-[#d9dee9] hover:bg-slate-50 transition-colors" title="My profile">
             {profile?.profileImg
               ? <img src={profile.profileImg} alt={displayName} className="w-8 h-8 rounded-[9px] object-cover shrink-0 bg-slate-100" />

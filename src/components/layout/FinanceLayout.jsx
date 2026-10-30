@@ -15,7 +15,8 @@ const NAV = [
   { id: 'recharge',    pageId: 'financeRecharge',    label: 'Recharge Management', path: '/finance/recharge',    icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/></svg> },
   { id: 'admanager-fee', pageId: 'financeRecharge',   label: 'AdManager Access Fee', path: '/finance/admanager-fee', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2H10a2 2 0 00-2 2v16"/></svg> },
   { id: 'subscription-plans', pageId: 'financeRecharge', label: 'Inquiry-Unlock Plans', path: '/finance/subscription-plans', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> },
-  { id: 'settlements', pageId: 'financeSettlements', label: 'Payouts & Settlements', path: '/finance/settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
+  { id: 'settlements', pageId: 'financeSettlements', label: 'Vendor Settlement Tracking', path: '/finance/settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
+  { id: 'vendor-settlements', pageId: 'financeVendorSettlements', label: 'Pending Vendor Settlements', path: '/finance/vendor-settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2H10a2 2 0 00-2 2v16"/></svg> },
   { id: 'refunds',     pageId: 'financeRefunds',     label: 'Refund Management',   path: '/finance/refunds',     icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> },
   { id: 'cancellation-refunds', pageId: 'financeBookingCancellations', label: 'Booking Cancellation Refunds', path: '/finance/cancellation-refunds', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> },
   { id: 'reports',     pageId: 'financeReports',     label: 'Finance Reports',     path: '/finance/reports',     icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
@@ -31,7 +32,8 @@ const TITLES = {
   '/finance/recharge':    'Recharge Management',
   '/finance/admanager-fee': 'AdManager Access Fee',
   '/finance/subscription-plans': 'Inquiry-Unlock Subscription Plans',
-  '/finance/settlements': 'Payouts & Settlement Tracking',
+  '/finance/settlements': 'Vendor Settlement Tracking',
+  '/finance/vendor-settlements': 'Pending Vendor Settlements',
   '/finance/refunds':     'Refund Management',
   '/finance/cancellation-refunds': 'Booking Cancellation Refunds',
   '/finance/reports':     'Finance Reports',
@@ -91,7 +93,7 @@ function FinanceLayoutInner() {
       <div className="flex-1 flex flex-col ml-[250px] min-w-0 overflow-hidden">
         <header className="jz-fin-topbar sticky top-0 z-30 px-8 h-16 flex items-center gap-4 shrink-0">
           <h1 className="flex-1 text-[19px] font-bold text-slate-800">{title}</h1>
-          <NotificationBell />
+          <NotificationBell portal="finance" />
           <button onClick={() => navigate('/finance/profile')} className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-[11px] border border-[#d9dee9] hover:bg-slate-50 transition-colors" title="My profile">
             {profile?.profileImg
               ? <img src={profile.profileImg} alt={displayName} className="w-8 h-8 rounded-[9px] object-cover shrink-0 bg-slate-100" />

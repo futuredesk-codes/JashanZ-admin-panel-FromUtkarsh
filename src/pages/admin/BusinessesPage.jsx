@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getBusinesses, verifyBusiness, deleteBusiness, getBusinessBookings, getCategories } from '../../api/business'
 import { getPlatformAnalytics } from '../../api/analytics'
 import { ApiError } from '../../api/client'
@@ -226,6 +227,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
 
 /* ── Main Page ── */
 export default function BusinessesPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -272,6 +274,28 @@ export default function BusinessesPage() {
   }, [page, debouncedSearch, catFilter, statusFilter])
 
   useEffect(() => { (async () => { await loadBusinesses() })() }, [loadBusinesses])
+
+  // Deep-link from the notification bell (e.g. "New Vendor Registration") —
+  // ?businessId=... opens that vendor's detail modal directly, regardless
+  // of which page/filter it would otherwise fall on in the list. Fetched
+  // independently of loadBusinesses' own paginated/filtered query so it
+  // works even if that vendor wouldn't appear on the current filter/page.
+  useEffect(() => {
+    const businessId = searchParams.get('businessId')
+    if (!businessId) return
+    getBusinesses({ businessId, page: 1, limit: 1 })
+      .then(data => {
+        const biz = data.items?.[0]
+        if (biz) setViewBiz(biz)
+      })
+      .catch(() => {})
+      .finally(() => {
+        const next = new URLSearchParams(searchParams)
+        next.delete('businessId')
+        setSearchParams(next, { replace: true })
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever meant to run once on mount for the initial deep-link, not on every searchParams/setSearchParams identity change
+  }, [])
 
   // Live cross-portal sync — Support's Vendor Approvals page can also
   // approve/reject these same Business documents; patch the row in place

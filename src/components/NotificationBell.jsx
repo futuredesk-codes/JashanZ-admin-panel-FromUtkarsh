@@ -16,30 +16,42 @@ function timeAgo(dateStr) {
 }
 
 
-// This bell lives in the Admin portal, which has its own separate login/token
-// from Support and Finance (see ProtectedRoute/SupportAuthContext). Some
-// notification types (NEW_SUPPORT_TICKET, AD_CREATED, RECHARGE_RECEIVED) are
-// sent via notifyStaffForPage to whichever staff — including SUPER_ADMIN —
-// has page access, but they only ever link to Support/Finance-portal pages,
-// which a Support/Finance-less Admin session can't open (its ProtectedRoute
-// bounces to that portal's own /login). Deliberately left unmapped here so
-// those rows render as non-clickable instead of redirecting to a login
-// screen; they still show up correctly in the Support/Finance portals' own
-// bells, which ARE logged into those portals.
-// VENDOR_REGISTERED is the one deliberately dual-sent to both Admin's own
-// 'businesses' page and Support's 'supportApprovals' — only the Admin-portal
-// destination belongs here.
-const NOTIFICATION_ROUTES = {
-  VENDOR_REGISTERED: '/admin/businesses',
+// This single component is rendered inside all three staff portals (Admin,
+// Support, Finance — see AdminHeader/SupportLayout/FinanceLayout), each with
+// its own separate login/token (ProtectedRoute + SubdomainGuard per portal
+// prefix). A notification type can be fanned out to more than one portal's
+// staff at once (e.g. VENDOR_REGISTERED -> both 'businesses' (Admin) and
+// 'supportApprovals' (Support) page permissions, see notifyStaffForPage in
+// notificationHelper.js), but each portal only has routes under its own
+// prefix — navigating a Support session to an Admin-only path like
+// /admin/businesses doesn't 403, it gets caught by SubdomainGuard/
+// ProtectedRoute and silently bounces to THAT portal's own /login, which
+// looks exactly like "got logged out" even though the session was fine.
+// So the destination must be resolved per-portal, not as one shared path.
+// Caller passes `portal` ('admin' | 'support' | 'finance') matching its own
+// route prefix; a type with no entry for the current portal renders as
+// non-clickable instead of guessing — same discipline as before for types
+// that only make sense in one portal (NEW_SUPPORT_TICKET, AD_CREATED,
+// RECHARGE_RECEIVED), now just applied consistently to VENDOR_REGISTERED
+// too instead of hardcoding Admin's path unconditionally.
+const NOTIFICATION_ROUTES_BY_PORTAL = {
+  admin: {
+    VENDOR_REGISTERED: (n) => `/admin/businesses?businessId=${n.data?.businessId}`,
+  },
+  support: {
+    VENDOR_REGISTERED: (n) => `/support/approvals?businessId=${n.data?.businessId}`,
+  },
+  finance: {},
 }
 
-// n.data?.link is a few deliberately cross-portal, so ignore anything the
-// backend attached only for the Support/Finance bells — Admin only
-// navigates on its own known-safe routes above.
-const targetPathFor = (n) => NOTIFICATION_ROUTES[n?.type] || null
+const targetPathFor = (n, portal) => {
+  const resolve = NOTIFICATION_ROUTES_BY_PORTAL[portal]?.[n?.type]
+  if (!resolve) return null
+  return typeof resolve === 'function' ? resolve(n) : resolve
+}
 
-function NotificationRow({ n, onMarkRead, onNavigate }) {
-  const targetPath = targetPathFor(n)
+function NotificationRow({ n, portal, onMarkRead, onNavigate }) {
+  const targetPath = targetPathFor(n, portal)
 
   const handleClick = () => {
     if (!n.isRead) onMarkRead(n._id)
@@ -63,7 +75,7 @@ function NotificationRow({ n, onMarkRead, onNavigate }) {
   )
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ portal = 'admin' }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
@@ -178,7 +190,7 @@ export default function NotificationBell() {
               ) : (
                 <>
                   {notifications.map(n => (
-                    <NotificationRow key={n._id} n={n} onMarkRead={handleMarkRead} onNavigate={handleNavigate} />
+                    <NotificationRow key={n._id} n={n} portal={portal} onMarkRead={handleMarkRead} onNavigate={handleNavigate} />
                   ))}
                   {loadingMore && <p className="text-xs text-slate-400 text-center py-3">Loading more…</p>}
                   {!hasMore && notifications.length > PAGE_SIZE && (

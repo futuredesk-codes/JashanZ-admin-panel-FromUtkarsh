@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { getBookingPayments, getBookingPaymentDetails, deleteBookingPayment } from '../../api/finance'
+import { getBookingPayments, getBookingPaymentsByVendor, getBookingPaymentDetails, deleteBookingPayment } from '../../api/finance'
 import { ApiError } from '../../api/client'
 import SearchableSelect from '../../components/SearchableSelect'
 import ConfirmDialog from '../../components/ConfirmDialog'
@@ -58,7 +58,7 @@ function BookingPaymentDetailModal({ bookingId, onClose }) {
   const vendorName = booking?.business?.username || '—'
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <h3 className="font-black text-slate-800">Booking Payment Details</h3>
@@ -129,18 +129,178 @@ function BookingPaymentDetailModal({ bookingId, onClose }) {
   )
 }
 
+/* ── All bookings for one vendor — opened by clicking a row in the
+   "Group by Vendor" summary table. Reuses the same booking-payments list
+   endpoint, narrowed to this vendor via businessId, under whatever
+   date/payment-status filters the summary table currently has applied. ── */
+function VendorBookingsModal({ vendor, params, onClose, onViewBooking }) {
+  const [items, setItems] = useState([])
+  const [pagination, setPagination] = useState({ total: 0, page: 1, hasNextPage: false })
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fetch's own setState calls are the fetch-on-mount/page-change trigger, not a derived-render value
+    setLoading(true)
+    setError('')
+    getBookingPayments({ ...params, businessId: vendor.id, page, limit: 20 })
+      .then(data => {
+        setItems(data.items || [])
+        setPagination(data.pagination || { total: 0, page: 1, hasNextPage: false })
+      })
+      .catch(err => setError(err instanceof ApiError ? err.message : "Could not load this vendor's bookings."))
+      .finally(() => setLoading(false))
+  }, [vendor.id, params, page])
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">{vendor.name}</h3>
+            <p className="text-xs text-slate-400">{vendor.category || '—'} · All bookings</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconX /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-6">
+          {loading ? (
+            <p className="text-sm text-slate-400 py-8 text-center">Loading bookings...</p>
+          ) : error ? (
+            <p className="text-sm text-danger py-4">{error}</p>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-slate-400 py-8 text-center">No bookings for this vendor match the current filters.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left">
+                    {['Paid By', 'Service', 'Amount', 'Booking Status', 'Payment Status', 'Paid On', ''].map(h => (
+                      <th key={h} className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide pb-2 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map(b => (
+                    <tr key={b.bookingId}>
+                      <td className="py-2.5 pr-3 font-semibold text-slate-700 whitespace-nowrap">{b.payer.name}</td>
+                      <td className="py-2.5 pr-3 text-slate-500 whitespace-nowrap">{b.service}</td>
+                      <td className="py-2.5 pr-3 font-bold text-slate-800 whitespace-nowrap">{fmtMoney(b.amount)}</td>
+                      <td className="py-2.5 pr-3 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${BOOKING_STATUS_STYLES[b.bookingStatus] || 'bg-slate-100 text-slate-500'}`}>{b.bookingStatus?.replace('_', ' ')}</span>
+                      </td>
+                      <td className="py-2.5 pr-3 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${PAYMENT_STATUS_STYLES[b.paymentStatus] || 'bg-slate-100 text-slate-500'}`}>{b.paymentStatus}</span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-slate-500 whitespace-nowrap">{fmtDate(b.paidAt)}</td>
+                      <td className="py-2.5">
+                        <button onClick={() => onViewBooking(b.bookingId)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-brand/8 text-brand hover:bg-brand/15" title="View details"><IconEye /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 text-xs text-slate-400 shrink-0">
+          <span>Showing {items.length} of {pagination.total} bookings</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
+            <span className="font-semibold text-slate-500">Page {pagination.page}</span>
+            <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Per-vendor summary table — "Group by Vendor" view: how many bookings
+   each vendor has had and how much they've actually been paid so far,
+   under the same filters as the flat list above. ── */
+function VendorSummaryTable({ params, invalidRange, onViewVendor }) {
+  const [items, setItems] = useState([])
+  const [pagination, setPagination] = useState({ total: 0, page: 1, hasNextPage: false })
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- filters changing underneath this view should reset it back to page 1, not keep an out-of-range page
+  useEffect(() => { setPage(1) }, [params])
+
+  useEffect(() => {
+    if (invalidRange) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the fetch's own setState calls are the fetch-on-filter/page-change trigger, not a derived-render value
+    setLoading(true)
+    setError('')
+    getBookingPaymentsByVendor({ ...params, page })
+      .then(data => {
+        setItems(data.items || [])
+        setPagination(data.pagination || { total: 0, page: 1, hasNextPage: false })
+      })
+      .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load vendor booking summary.'))
+      .finally(() => setLoading(false))
+  }, [params, page, invalidRange])
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50/70 border-b border-slate-100">
+            <tr>
+              {['Vendor', 'Category', 'Total Bookings', 'Paid Bookings', 'Total Booking Value', 'Total Paid So Far', 'Last Booking'].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {error ? (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-danger text-sm font-semibold">{error}</td></tr>
+            ) : loading ? (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-12 text-center text-slate-400 text-sm">No vendors match your filters</td></tr>
+            ) : items.map(v => (
+              <tr key={v.vendor.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => onViewVendor(v.vendor)}>
+                <td className="px-4 py-3 font-bold text-xs text-slate-800 whitespace-nowrap">{v.vendor.name}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{v.vendor.category || '—'}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{v.totalBookings}</td>
+                <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{v.paidBookings}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtMoney(v.totalAmount)}</td>
+                <td className="px-4 py-3 text-sm font-black text-success whitespace-nowrap">{fmtMoney(v.totalAmountPaid)}</td>
+                <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(v.lastBookingAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
+        <span>Showing {items.length} of {pagination.total} vendors</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
+          <span className="font-semibold text-slate-500">Page {pagination.page}</span>
+          <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function BookingPaymentsPage() {
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, hasNextPage: false })
   const [filterOptions, setFilterOptions] = useState({ cities: [], categories: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [groupByVendor, setGroupByVendor] = useState(false)
 
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({ category: '', city: '', paymentStatus: '', from: '', to: '' })
   const setF = (k, v) => { setFilters(f => ({ ...f, [k]: v })); setPage(1) }
 
   const [viewingId, setViewingId] = useState(null)
+  const [viewingVendor, setViewingVendor] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -148,16 +308,16 @@ export default function BookingPaymentsPage() {
   const invalidRange = Boolean(filters.from && filters.to && filters.from > filters.to)
 
   const params = useMemo(() => {
-    const p = { page, limit: 20 }
+    const p = {}
     Object.entries(filters).forEach(([k, v]) => { if (v) p[k] = v })
     return p
-  }, [page, filters])
+  }, [filters])
 
   const load = useCallback(() => {
-    if (invalidRange) return
+    if (invalidRange || groupByVendor) return
     setLoading(true)
     setError('')
-    getBookingPayments(params)
+    getBookingPayments({ ...params, page, limit: 20 })
       .then(data => {
         setItems(data.items || [])
         setPagination(data.pagination || { total: 0, page: 1, hasNextPage: false })
@@ -165,7 +325,7 @@ export default function BookingPaymentsPage() {
       })
       .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load booking payments.'))
       .finally(() => setLoading(false))
-  }, [params, invalidRange])
+  }, [params, page, invalidRange, groupByVendor])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- load()'s own setState calls are the fetch-on-filter-change trigger, not a derived-render value
   useEffect(() => { load() }, [load])
@@ -190,9 +350,29 @@ export default function BookingPaymentsPage() {
 
   return (
     <div className="space-y-5 pb-6">
-      <div>
-        <h1 className="text-xl font-black text-slate-800">Booking Payments</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Every online booking payment made by a user, as it happens — independent of the booking's own status</p>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-black text-slate-800">Booking Payments</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {groupByVendor
+              ? 'Per vendor — total bookings and total payment received so far'
+              : "Every online booking payment made by a user, as it happens — independent of the booking's own status"}
+          </p>
+        </div>
+        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shrink-0">
+          <button
+            onClick={() => setGroupByVendor(false)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${!groupByVendor ? 'bg-brand text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            All Payments
+          </button>
+          <button
+            onClick={() => setGroupByVendor(true)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors ${groupByVendor ? 'bg-brand text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            Group by Vendor
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -231,60 +411,72 @@ export default function BookingPaymentsPage() {
       {error && <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">{error}</div>}
       {deleteError && <div className="bg-danger/8 text-danger rounded-xl px-4 py-3 text-sm font-semibold">{deleteError}</div>}
 
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50/70 border-b border-slate-100">
-              <tr>
-                {['Paid By', 'Vendor', 'Service', 'Amount', 'Booking Status', 'Payment Status', 'Order ID', 'Paid On', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
-              ) : items.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400 text-sm">No booking payments match your filters</td></tr>
-              ) : items.map(b => (
-                <tr key={b.bookingId} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <p className="font-bold text-xs text-slate-800 leading-tight">{b.payer.name}</p>
-                    <p className="text-[11px] text-slate-400">{b.payer.kind}</p>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{b.vendor.name}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{b.service}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{fmtMoney(b.amount)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${BOOKING_STATUS_STYLES[b.bookingStatus] || 'bg-slate-100 text-slate-500'}`}>{b.bookingStatus?.replace('_', ' ')}</span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${PAYMENT_STATUS_STYLES[b.paymentStatus] || 'bg-slate-100 text-slate-500'}`}>{b.paymentStatus}</span>
-                  </td>
-                  <td className="px-4 py-3 text-[11px] text-slate-400 font-mono whitespace-nowrap">{b.orderId || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(b.paidAt)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setViewingId(b.bookingId)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-brand/8 text-brand hover:bg-brand/15" title="View details"><IconEye /></button>
-                      <button onClick={() => setDeleteTarget(b)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15" title="Delete"><IconTrash /></button>
-                    </div>
-                  </td>
+      {groupByVendor ? (
+        <VendorSummaryTable params={params} invalidRange={invalidRange} onViewVendor={setViewingVendor} />
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50/70 border-b border-slate-100">
+                <tr>
+                  {['Paid By', 'Vendor', 'Service', 'Amount', 'Booking Status', 'Payment Status', 'Order ID', 'Paid On', 'Actions'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
-          <span>Showing {items.length} of {pagination.total} payments</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
-            <span className="font-semibold text-slate-500">Page {pagination.page}</span>
-            <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400 text-sm">Loading…</td></tr>
+                ) : items.length === 0 ? (
+                  <tr><td colSpan={9} className="px-4 py-12 text-center text-slate-400 text-sm">No booking payments match your filters</td></tr>
+                ) : items.map(b => (
+                  <tr key={b.bookingId} className="hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <p className="font-bold text-xs text-slate-800 leading-tight">{b.payer.name}</p>
+                      <p className="text-[11px] text-slate-400">{b.payer.kind}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{b.vendor.name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{b.service}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{fmtMoney(b.amount)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${BOOKING_STATUS_STYLES[b.bookingStatus] || 'bg-slate-100 text-slate-500'}`}>{b.bookingStatus?.replace('_', ' ')}</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${PAYMENT_STATUS_STYLES[b.paymentStatus] || 'bg-slate-100 text-slate-500'}`}>{b.paymentStatus}</span>
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-slate-400 font-mono whitespace-nowrap">{b.orderId || '—'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(b.paidAt)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setViewingId(b.bookingId)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-brand/8 text-brand hover:bg-brand/15" title="View details"><IconEye /></button>
+                        <button onClick={() => setDeleteTarget(b)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15" title="Delete"><IconTrash /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
+            <span>Showing {items.length} of {pagination.total} payments</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Prev</button>
+              <span className="font-semibold text-slate-500">Page {pagination.page}</span>
+              <button onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage} className="px-3 py-1.5 rounded-lg border border-slate-200 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">Next</button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {viewingId && <BookingPaymentDetailModal bookingId={viewingId} onClose={() => setViewingId(null)} />}
+      {viewingVendor && (
+        <VendorBookingsModal
+          vendor={viewingVendor}
+          params={params}
+          onClose={() => setViewingVendor(null)}
+          onViewBooking={setViewingId}
+        />
+      )}
       {deleteTarget && (
         <ConfirmDialog
           title="Delete this booking payment?"

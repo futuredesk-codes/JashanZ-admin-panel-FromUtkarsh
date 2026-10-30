@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import ReactQuill from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
 import { ApiError } from '../../api/client'
@@ -20,7 +20,17 @@ function formatUpdatedAt(iso) {
   return `Last updated ${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// Each dashboard (Client/User, Business/Vendor, Creator) has its own
+// independently-edited copy of every policy — a policy saved under one
+// audience tab never shows up on another dashboard.
+const AUDIENCES = [
+  { audience: 'client', label: 'Client' },
+  { audience: 'business', label: 'Business' },
+  { audience: 'creator', label: 'Creator' },
+]
+
 export default function PolicyEditorPage() {
+  const [audience, setAudience] = useState('client')
   const [policies, setPolicies] = useState([])
   const [activeSlug, setActiveSlug] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -35,7 +45,10 @@ export default function PolicyEditorPage() {
 
   useEffect(() => {
     let cancelled = false
-    getPolicies()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting loading/error is the fetch-on-audience-change trigger, not a derived-render value
+    setLoading(true)
+    setError('')
+    getPolicies(audience)
       .then((data) => {
         if (cancelled) return
         const items = data?.policies || []
@@ -46,7 +59,7 @@ export default function PolicyEditorPage() {
       .catch((err) => !cancelled && setError(err instanceof ApiError ? err.message : 'Could not load policies.'))
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
-  }, [])
+  }, [audience])
 
   const activePolicy = useMemo(() => policies.find((p) => p.slug === activeSlug), [policies, activeSlug])
   const draftContent = drafts[activeSlug] ?? ''
@@ -62,7 +75,7 @@ export default function PolicyEditorPage() {
     setSaving(true)
     setSaveError('')
     try {
-      const result = await updatePolicy(activeSlug, draftContent)
+      const result = await updatePolicy(audience, activeSlug, draftContent)
       setPolicies((prev) =>
         prev.map((p) => (p.slug === activeSlug ? { ...p, content: result.content, updatedAt: result.updatedAt } : p)),
       )
@@ -88,6 +101,22 @@ export default function PolicyEditorPage() {
         <p className="text-sm text-slate-500 mt-0.5">
           Edit the Terms, Privacy Policy, and every other published policy shown to users on the website
         </p>
+      </div>
+
+      <div className="flex gap-2">
+        {AUDIENCES.map((a) => (
+          <button
+            key={a.audience}
+            onClick={() => setAudience(a.audience)}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              audience === a.audience
+                ? 'bg-brand text-white'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (

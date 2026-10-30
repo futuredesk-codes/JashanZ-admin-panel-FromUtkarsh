@@ -1,6 +1,6 @@
 import { api } from "./client";
 
-export const getPolicies = () => api.get("/admin/policies");
+export const getPolicies = (audience) => api.get(`/admin/policies?audience=${audience}`);
 
-export const updatePolicy = (slug, content) =>
-  api.post("/admin/policies/update", { slug, content });
+export const updatePolicy = (audience, slug, content) =>
+  api.post("/admin/policies/update", { audience, slug, content });

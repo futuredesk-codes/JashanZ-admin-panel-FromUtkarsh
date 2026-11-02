@@ -3,8 +3,8 @@ import { api } from "./client";
 export const getBusinesses = (params) =>
   api.get("/admin/businesses/all", params);
 
-export const verifyBusiness = (businessId, status) =>
-  api.post(`/admin/business/${businessId}/verify`, { status });
+export const verifyBusiness = (businessId, status, force = false) =>
+  api.post(`/admin/business/${businessId}/verify`, { status, force });
 
 export const deleteBusiness = (businessId) =>
   api.post(`/admin/business/${businessId}/delete`);

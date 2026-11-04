@@ -25,6 +25,15 @@ const BOOKING_STATUS_STYLES = {
 const fmtMoney = n => `₹${(n || 0).toLocaleString('en-IN')}`
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'
 
+// Mirrors the backend gate in adminBusiness.js's verifyBusiness — lets the
+// UI warn about a blocked approval before the admin clicks Approve, instead
+// of only finding out from the error toast after the request round-trips.
+const getBankPendingReason = biz => {
+  if (!biz.bankName || !biz.holderName || !biz.accountNumber || !biz.bankIfsc) return 'Bank details are incomplete'
+  if (!biz.isBankVerified) return 'Bank account has not passed verification'
+  return null
+}
+
 /* ── Icons ── */
 const IconEye = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 const IconCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -38,8 +47,8 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
   const tabs = ['Overview', 'Documents', 'Bank Details', 'Bookings']
   const [bookings, setBookings] = useState([])
   const [bookingsLoading, setBookingsLoading] = useState(false)
-  const [actionLoading, setActionLoading] = useState(false)
   const profile = biz.profile || {}
+  const bankPendingReason = getBankPendingReason(biz)
 
   useEffect(() => {
     if (tab !== 'Bookings') return
@@ -55,15 +64,6 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
       }
     })()
   }, [tab, biz._id])
-
-  const handleVerify = async (status) => {
-    setActionLoading(true)
-    try {
-      await onVerify(biz._id, status)
-    } finally {
-      setActionLoading(false)
-    }
-  }
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target===e.currentTarget && onClose()}>
@@ -96,6 +96,11 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
         <div className="overflow-y-auto flex-1 p-6">
           {tab === 'Overview' && (
             <div className="grid grid-cols-2 gap-4">
+              {bankPendingReason && biz.status !== 'VERIFIED' && (
+                <div className="col-span-2 bg-warning/10 text-warning rounded-xl p-3 text-sm font-semibold">
+                  Approval pending: {bankPendingReason} — see Bank Details tab.
+                </div>
+              )}
               {[
                 ['Username', biz.username],
                 ['Email', biz.email || '—'],
@@ -151,18 +156,29 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
           )}
 
           {tab === 'Bank Details' && (
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                ['Account Holder', biz.holderName],
-                ['Account Number', biz.accountNumber ? `••••${String(biz.accountNumber).slice(-4)}` : '—'],
-                ['Bank', biz.bankName],
-                ['IFSC Code', biz.bankIfsc],
-              ].map(([k, v]) => (
-                <div key={k} className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">{k}</p>
-                  <p className="text-sm font-bold text-slate-800">{v || '—'}</p>
+            <div className="space-y-4">
+              {bankPendingReason ? (
+                <div className="bg-warning/10 text-warning rounded-xl p-3 text-sm font-semibold">
+                  Pending: {bankPendingReason}
                 </div>
-              ))}
+              ) : (
+                <div className="bg-success/10 text-success rounded-xl p-3 text-sm font-semibold">
+                  Bank account verified
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  ['Account Holder', biz.holderName],
+                  ['Account Number', biz.accountNumber ? `••••${String(biz.accountNumber).slice(-4)}` : '—'],
+                  ['Bank', biz.bankName],
+                  ['IFSC Code', biz.bankIfsc],
+                ].map(([k, v]) => (
+                  <div key={k} className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">{k}</p>
+                    <p className="text-sm font-bold text-slate-800">{v || '—'}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -205,15 +221,15 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
           <button onClick={onClose} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200">Close</button>
           <div className="flex gap-2">
             <button
-              onClick={() => handleVerify('VERIFIED')}
-              disabled={actionLoading || biz.status === 'VERIFIED'}
+              onClick={() => onVerify(biz._id, 'VERIFIED')}
+              disabled={biz.status === 'VERIFIED'}
               className="bg-success/10 text-success rounded-xl px-4 py-2 text-sm font-bold hover:bg-success/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Approve
             </button>
             <button
-              onClick={() => handleVerify('REJECTED')}
-              disabled={actionLoading || biz.status === 'REJECTED'}
+              onClick={() => onVerify(biz._id, 'REJECTED')}
+              disabled={biz.status === 'REJECTED'}
               className="bg-danger/10 text-danger rounded-xl px-4 py-2 text-sm font-bold hover:bg-danger/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Reject
@@ -242,6 +258,10 @@ export default function BusinessesPage() {
   const [viewBiz, setViewBiz] = useState(null)
   const [deleteBiz, setDeleteBiz] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null) // { biz, status }
+  const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [forceAck, setForceAck] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -312,24 +332,34 @@ export default function BusinessesPage() {
     },
   })
 
-  const handleVerify = async (businessId, status) => {
-    await verifyBusiness(businessId, status)
-    loadBusinesses()
-    loadStats()
-    setViewBiz(v => v && v._id === businessId ? { ...v, status } : v)
+  const handleVerify = async (businessId, status, force = false) => {
+    setActionLoading(true)
+    setActionError('')
+    try {
+      await verifyBusiness(businessId, status, force)
+      loadBusinesses()
+      loadStats()
+      setViewBiz(v => v && v._id === businessId ? { ...v, status } : v)
+      setConfirmAction(null)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not update business status.')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   const handleDelete = async () => {
     if (!deleteBiz) return
     setDeleting(true)
+    setActionError('')
     try {
       await deleteBusiness(deleteBiz._id)
       setDeleteBiz(null)
       setViewBiz(v => v && v._id === deleteBiz._id ? null : v)
       loadBusinesses()
       loadStats()
-    } catch {
-      // no-op — dialog stays open so the admin can retry
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not delete business.')
     } finally {
       setDeleting(false)
     }
@@ -422,15 +452,20 @@ export default function BusinessesPage() {
                   <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{biz.category?.name || '—'}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{biz.profile?.area || '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[biz.status]}`}>{STATUS_LABEL[biz.status]}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[biz.status]}`}>{STATUS_LABEL[biz.status]}</span>
+                      {biz.status !== 'VERIFIED' && getBankPendingReason(biz) && (
+                        <span className="w-2 h-2 rounded-full bg-warning" title={`Approval pending: ${getBankPendingReason(biz)}`} />
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">{biz.bookingsCount}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{fmtDate(biz.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => setViewBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
-                      <button onClick={() => handleVerify(biz._id, 'VERIFIED')} disabled={biz.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
-                      <button onClick={() => handleVerify(biz._id, 'REJECTED')} disabled={biz.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
+                      <button onClick={() => { setActionError(''); setForceAck(false); setConfirmAction({ biz, status: 'VERIFIED' }) }} disabled={biz.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
+                      <button onClick={() => { setActionError(''); setForceAck(false); setConfirmAction({ biz, status: 'REJECTED' }) }} disabled={biz.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
                       <button onClick={() => setDeleteBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
                     </div>
                   </td>
@@ -449,7 +484,65 @@ export default function BusinessesPage() {
         </div>
       </div>
 
-      {viewBiz && <BusinessDetailModal biz={viewBiz} onClose={() => setViewBiz(null)} onVerify={handleVerify} />}
+      {viewBiz && (
+        <BusinessDetailModal
+          biz={viewBiz}
+          onClose={() => setViewBiz(null)}
+          onVerify={(businessId, status) => {
+            const biz = businesses.find(b => b._id === businessId) || viewBiz
+            setActionError('')
+            setForceAck(false)
+            setConfirmAction({ biz, status })
+          }}
+        />
+      )}
+
+      {confirmAction && (() => {
+        const bankPendingReason = confirmAction.status === 'VERIFIED' ? getBankPendingReason(confirmAction.biz) : null
+        const name = confirmAction.biz.profile?.name || confirmAction.biz.username
+        const canConfirm = !bankPendingReason || forceAck
+        return (
+          <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && setConfirmAction(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h3 className="font-black text-slate-800 text-base mb-2">
+                {confirmAction.status === 'VERIFIED' ? 'Approve this business?' : 'Reject this business?'}
+              </h3>
+              <p className="text-sm text-slate-500 mb-3">
+                {confirmAction.status === 'VERIFIED'
+                  ? `${name} will be approved and go live on the platform.`
+                  : `${name} will be rejected.`}
+              </p>
+              {bankPendingReason && (
+                <div className="bg-warning/10 text-warning rounded-xl p-3 text-sm font-semibold mb-3 space-y-2">
+                  <p>Warning: {bankPendingReason}. Approving without this will let the vendor go live with no verified payout account.</p>
+                  <label className="flex items-start gap-2 font-normal cursor-pointer">
+                    <input type="checkbox" className="mt-0.5" checked={forceAck} onChange={e => setForceAck(e.target.checked)} />
+                    <span>I understand and want to approve anyway</span>
+                  </label>
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-2 mt-3">
+                <button onClick={() => setConfirmAction(null)} disabled={actionLoading} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleVerify(confirmAction.biz._id, confirmAction.status, Boolean(bankPendingReason))}
+                  disabled={actionLoading || !canConfirm}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 ${confirmAction.status === 'VERIFIED' ? 'bg-success hover:bg-success/90' : 'bg-danger hover:bg-danger/90'}`}
+                >
+                  {actionLoading ? 'Working…' : (confirmAction.status === 'VERIFIED' ? 'Approve' : 'Reject')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {actionError && (
+        <div className="fixed bottom-4 right-4 z-[70] bg-danger/10 text-danger rounded-xl px-4 py-3 text-sm font-semibold shadow-lg max-w-sm cursor-pointer" onClick={() => setActionError('')}>
+          {actionError}
+        </div>
+      )}
 
       {deleteBiz && (
         <ConfirmDialog

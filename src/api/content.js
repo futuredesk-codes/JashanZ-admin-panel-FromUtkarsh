@@ -10,5 +10,9 @@ export const suspendPost = (id) => api.post(`/admin/content/post/${id}/suspend`)
 export const reactivateBoom = (id) => api.post(`/admin/content/boom/${id}/reactivate`)
 export const reactivatePost = (id) => api.post(`/admin/content/post/${id}/reactivate`)
 
+/* ── Reported Users ("Report User" submissions) ── */
+export const getReportedUsers = (params) => api.get('/admin/reported-users', params)
+export const updateReportedUserStatus = (id, status) => api.post(`/admin/reported-users/${id}/status`, { status })
+
 export const removeBoom = (id) => api.post(`/admin/content/boom/${id}/remove`)
 export const removePost = (id) => api.post(`/admin/content/post/${id}/remove`)

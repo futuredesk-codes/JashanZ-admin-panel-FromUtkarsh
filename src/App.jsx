@@ -65,7 +65,8 @@ import CreatorsPage from "./pages/admin/CreatorsPage";
 import CustomersPage from "./pages/admin/CustomersPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
 import CirclesPage from "./pages/admin/CirclesPage";
-import ContentModerationPage from "./pages/admin/ContentModerationPage";
+import ContentModerationPage from "./pages/admin/ContentModerationPage"
+import ReportedUsersPage from "./pages/admin/ReportedUsersPage";
 import FinancePage from "./pages/admin/FinancePage";
 import SupportUsersPage from "./pages/admin/SupportUsersPage";
 import FinanceUsersPage from "./pages/admin/FinanceUsersPage";
@@ -186,6 +187,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="contentModeration">
               <ContentModerationPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="reported-users"
+          element={
+            <PagePermissionGuard pageId="contentModeration">
+              <ReportedUsersPage />
             </PagePermissionGuard>
           }
         />

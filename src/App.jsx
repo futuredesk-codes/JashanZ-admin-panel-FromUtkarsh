@@ -73,6 +73,7 @@ import FinanceUsersPage from "./pages/admin/FinanceUsersPage";
 import AdManagerUsersPage from "./pages/admin/AdManagerUsersPage";
 import ReportsPage from "./pages/admin/ReportsPage";
 import AuditLogsPage from "./pages/admin/AuditLogsPage";
+import SecurityPage from "./pages/admin/SecurityPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import PolicyEditorPage from "./pages/admin/PolicyEditorPage";
 
@@ -250,6 +251,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="auditLogs">
               <AuditLogsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="security"
+          element={
+            <PagePermissionGuard pageId="security">
+              <SecurityPage />
             </PagePermissionGuard>
           }
         />

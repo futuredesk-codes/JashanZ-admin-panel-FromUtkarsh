@@ -101,6 +101,52 @@ export const api = {
   delete: (path) => request(path, { method: 'DELETE' }),
 }
 
+/**
+ * Downloads a file from an authenticated endpoint (e.g. a CSV export). A plain
+ * <a href> can't send the Authorization header, so the response is fetched and
+ * saved from a Blob instead.
+ */
+export async function downloadFile(path, { params, fallbackName = 'download' } = {}) {
+  const url = new URL(API_BASE_URL.replace(/\/$/, '') + path)
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, value)
+    })
+  }
+
+  const headers = {}
+  const stored = getStoredAuth()
+  if (stored?.token) headers.Authorization = `Bearer ${stored.token}`
+
+  let res
+  try {
+    res = await fetch(url, { headers })
+  } catch {
+    throw new ApiError('Unable to reach the server. Check your connection.', 0, null)
+  }
+
+  if (!res.ok) {
+    let json = null
+    try {
+      json = await res.json()
+    } catch {
+      // not JSON
+    }
+    throw new ApiError(parseErrorMessage(json?.message) || `Download failed (${res.status})`, res.status, json)
+  }
+
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] || fallbackName
+  const blobUrl = URL.createObjectURL(await res.blob())
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(blobUrl)
+}
+
 /** Uploads a file directly to S3 using a presigned PUT URL obtained from the backend. */
 export async function uploadToPresignedUrl(presignedUrl, file) {
   const res = await fetch(presignedUrl, {

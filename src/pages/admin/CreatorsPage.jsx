@@ -10,6 +10,7 @@ const STATUS_STYLES = {
   VERIFIED: 'bg-success/10 text-success',
   REJECTED: 'bg-danger/10 text-danger',
 }
+const DELETED_STYLE = 'bg-slate-100 text-slate-500'
 
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'
 const fmtCount = n => (n || 0).toLocaleString('en-IN')
@@ -70,7 +71,7 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[creator.status]}`}>{STATUS_LABEL[creator.status]}</span>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${creator.isActive === false ? DELETED_STYLE : STATUS_STYLES[creator.status]}`}>{creator.isActive === false ? 'Deleted' : STATUS_LABEL[creator.status]}</span>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200"><IconX /></button>
           </div>
         </div>
@@ -150,7 +151,7 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
             {statsError && <p className="text-xs text-danger font-semibold">{statsError}</p>}
             <button
               onClick={handleSaveStats}
-              disabled={savingStats}
+              disabled={savingStats || creator.isActive === false}
               className="ml-auto bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-4 py-2 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {savingStats ? 'Saving…' : 'Save Follower Counts'}
@@ -164,7 +165,7 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
 
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
           <button onClick={onClose} className="bg-slate-100 text-slate-600 rounded-xl px-4 py-2 text-sm font-bold hover:bg-slate-200">Close</button>
-          <div className="flex gap-2">
+          {creator.isActive !== false && <div className="flex gap-2">
             <button
               onClick={() => handleVerify('VERIFIED')}
               disabled={actionLoading || creator.status === 'VERIFIED'}
@@ -179,7 +180,7 @@ function CreatorDetailModal({ creator, onClose, onVerify, actionError, onStatsSa
             >
               Reject
             </button>
-          </div>
+          </div>}
         </div>
       </div>
     </div>
@@ -206,12 +207,14 @@ export default function CreatorsPage() {
       getCreators({ status: 'PENDING', limit: 1 }),
       getCreators({ status: 'VERIFIED', limit: 1 }),
       getCreators({ status: 'REJECTED', limit: 1 }),
+      getCreators({ deleted: true, limit: 1 }),
     ])
-      .then(([all, pending, verified, rejected]) => setStats({
+      .then(([all, pending, verified, rejected, deleted]) => setStats({
         total: all.pagination.total,
         pending: pending.pagination.total,
         verified: verified.pagination.total,
         rejected: rejected.pagination.total,
+        deleted: deleted.pagination.total,
       }))
       .catch(() => {})
   }, [])
@@ -221,7 +224,7 @@ export default function CreatorsPage() {
   const loadCreators = useCallback(() => {
     setLoading(true)
     setError('')
-    getCreators({ page, limit: 10, status: statusFilter })
+    getCreators(statusFilter === 'DELETED' ? { page, limit: 10, deleted: true } : { page, limit: 10, status: statusFilter })
       .then(data => {
         setCreators(data.items || [])
         setPagination(data.pagination)
@@ -269,6 +272,7 @@ export default function CreatorsPage() {
   const pending = stats?.pending ?? 0
   const approved = stats?.verified ?? 0
   const rejected = stats?.rejected ?? 0
+  const deleted = stats?.deleted ?? 0
 
   return (
     <div className="space-y-5 pb-6">
@@ -279,14 +283,15 @@ export default function CreatorsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           {label:'Total Creators', value:total, color:'info'},
           {label:'Pending Approval', value:pending, color:'warning'},
           {label:'Approved', value:approved, color:'success'},
           {label:'Rejected', value:rejected, color:'danger'},
+          {label:'Deleted', value:deleted, color:'slate'},
         ].map(s => {
-          const clr = {info:'bg-info/8 text-info',warning:'bg-warning/8 text-warning',success:'bg-success/8 text-success',danger:'bg-danger/8 text-danger'}
+          const clr = {info:'bg-info/8 text-info',warning:'bg-warning/8 text-warning',success:'bg-success/8 text-success',danger:'bg-danger/8 text-danger',slate:'bg-slate-100 text-slate-500'}
           return (
             <div key={s.label} className="bg-white rounded-2xl p-4 border border-slate-100">
               <div className={`w-9 h-9 rounded-xl ${clr[s.color]} flex items-center justify-center mb-3 text-lg font-black`}>
@@ -304,6 +309,7 @@ export default function CreatorsPage() {
         <select className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
           <option value="">All Statuses</option>
           {STATUSES_LIST.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+          <option value="DELETED">Deleted</option>
         </select>
       </div>
 
@@ -343,15 +349,19 @@ export default function CreatorsPage() {
                   <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{fmtCount(c.instagramFollowers)}</td>
                   <td className="px-4 py-3 text-xs text-slate-600 font-semibold">{fmtCount(c.youtubeSubscribers)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[c.status]}`}>{STATUS_LABEL[c.status]}</span>
+                    {c.isActive === false
+                      ? <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${DELETED_STYLE}`} title={c.accountStatus === 'PENDING_DELETION' ? 'The creator asked to delete this account' : 'Removed'}>Deleted</span>
+                      : <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[c.status]}`}>{STATUS_LABEL[c.status]}</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{fmtDate(c.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => setViewCreator(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
+                      {c.isActive !== false && <>
                       <button onClick={() => handleVerify(c._id, 'VERIFIED')} disabled={c.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
                       <button onClick={() => handleVerify(c._id, 'REJECTED')} disabled={c.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
                       <button onClick={() => setDeleteCreatorTarget(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
+                      </>}
                     </div>
                   </td>
                 </tr>

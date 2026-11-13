@@ -60,6 +60,7 @@ function PhotoField({ value, name, onChange, onError }) {
     </div>
   )
 }
+const IconEye = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 const IconEdit = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 const IconSliders = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
 const IconBan = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -235,6 +236,116 @@ function EditUserModal({ user, entityLabel, roles = [], onClose, onUpdated }) {
   )
 }
 
+/** View User Modal — read-only details of one staff account, plus which pages it can open and at what level. */
+function ViewUserModal({ user, roleMeta, onClose }) {
+  const [pages, setPages] = useState([])
+  const [levels, setLevels] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await getStaffPermissions(user._id)
+        if (cancelled) return
+        setPages(data.pages)
+        setLevels(data.permissions ?? {})
+      } catch (err) {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Failed to load page access.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [user._id])
+
+  const fmt = (d) => (d ? new Date(d).toLocaleString() : null)
+  const rows = [
+    ['Name', user.name],
+    ['Username', user.username],
+    ['Role', roleMeta?.label ?? user.role],
+    ['Status', user.isActive ? 'Active' : 'Inactive'],
+    ['Created', fmt(user.createdAt)],
+    ['Last Updated', fmt(user.updatedAt)],
+  ]
+
+  // Only the pages this person can actually open (level above NONE), grouped by portal.
+  const groups = pages.reduce((acc, p) => {
+    if ((levels[p.id] ?? 'NONE') !== 'NONE') (acc[p.portal] ??= []).push(p)
+    return acc
+  }, {})
+  const levelMeta = Object.fromEntries(LEVELS.map(l => [l.value, l]))
+  const openCount = Object.values(groups).reduce((sum, list) => sum + list.length, 0)
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <StaffAvatar src={user.profileImg} name={user.name || user.username} size="w-11 h-11" text="text-base" />
+            <div className="min-w-0">
+              <h3 className="font-black text-slate-800 text-base truncate">{user.name || user.username}</h3>
+              <p className="text-xs text-slate-400 truncate">{user.username}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${user.isActive ? 'bg-success/10 text-success' : 'bg-slate-100 text-slate-500'}`}>{user.isActive ? 'Active' : 'Inactive'}</span>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200" title="Close"><IconX /></button>
+          </div>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            {rows.map(([k, v]) => (
+              <div key={k} className="bg-slate-50 rounded-xl p-3">
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">{k}</p>
+                <p className="text-sm font-bold text-slate-800 break-words">{v || '—'}</p>
+              </div>
+            ))}
+            {roleMeta?.description && (
+              <div className="col-span-2 bg-slate-50 rounded-xl p-3">
+                <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">What this role does</p>
+                <p className="text-sm font-semibold text-slate-700">{roleMeta.description}</p>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-2">Page access{!loading && !error ? ` (${openCount})` : ''}</p>
+            {loading ? (
+              <p className="text-sm text-slate-400 py-4">Loading...</p>
+            ) : error ? (
+              <p className="text-sm text-danger font-semibold">{error}</p>
+            ) : openCount === 0 ? (
+              <p className="text-sm text-slate-400">This person cannot open any page yet. Use "Manage access" to give access.</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(groups).map(([portal, list]) => (
+                  <div key={portal}>
+                    <p className="text-[11px] font-semibold text-slate-400 mb-1.5">{PORTAL_LABELS[portal] ?? portal}</p>
+                    <div className="space-y-1.5">
+                      {list.map(page => {
+                        const lvl = levelMeta[levels[page.id]]
+                        return (
+                          <div key={page.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-50/60">
+                            <span className="text-sm font-semibold text-slate-700">{page.label}</span>
+                            <span className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold shrink-0 ${lvl?.cls ?? ''}`}>{lvl?.label ?? levels[page.id]}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Manage Permissions Modal — per-page NONE/View/Edit/Full toggles for one specific user, across all 3 portals. */
 function ManagePermissionsModal({ user, onClose, onSaved }) {
   const [pages, setPages] = useState([])
@@ -352,6 +463,7 @@ export default function StaffUsersPage({ title, subtitle, roles, createRole, ent
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [viewingUser, setViewingUser] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
   const [managingUser, setManagingUser] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -473,6 +585,7 @@ export default function StaffUsersPage({ title, subtitle, roles, createRole, ent
                     <td className="px-4 py-3 text-xs text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <button onClick={() => setViewingUser(u)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15" title="View"><IconEye /></button>
                         <button onClick={() => setEditingUser(u)} disabled={busyId===u._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 disabled:opacity-50" title="Edit"><IconEdit /></button>
                         <button onClick={() => setManagingUser(u)} disabled={busyId===u._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-brand/8 text-brand hover:bg-brand/15 disabled:opacity-50" title="Manage access"><IconSliders /></button>
                         <button onClick={() => handleToggle(u._id)} disabled={busyId===u._id} className="w-7 h-7 flex items-center justify-center rounded-lg bg-warning/8 text-warning hover:bg-warning/15 disabled:opacity-50" title={u.isActive ? 'Deactivate' : 'Activate'}><IconBan /></button>
@@ -491,6 +604,7 @@ export default function StaffUsersPage({ title, subtitle, roles, createRole, ent
       </div>
 
       {showAddModal && <AddUserModal entityLabel={entityLabel} createRole={createRole} roles={roles} onClose={() => setShowAddModal(false)} onCreated={fetchUsers} />}
+      {viewingUser && <ViewUserModal user={viewingUser} roleMeta={roleMeta[viewingUser.role]} onClose={() => setViewingUser(null)} />}
       {editingUser && <EditUserModal user={editingUser} entityLabel={entityLabel} roles={roles} onClose={() => setEditingUser(null)} onUpdated={fetchUsers} />}
       {managingUser && <ManagePermissionsModal user={managingUser} onClose={() => setManagingUser(null)} onSaved={fetchUsers} />}
     </div>

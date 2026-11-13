@@ -1,9 +1,17 @@
 import { useRef, useCallback } from 'react'
 
 const SDK_URL = 'https://sdk.cashfree.com/js/v3/cashfree.js'
-// Matches the backend's CASHFREE_ENV (SANDBOX while using test-mode keys) —
-// must flip to 'production' together with switching to live keys server-side.
-const MODE = 'sandbox'
+// Must match the backend's CASHFREE_ENV: a payment session made by a server on live keys only works in
+// Cashfree's 'production' checkout, and a test-mode session only in 'sandbox'. A mismatch shows up as
+// "payment_session_id is not present or is invalid".
+// The live site talks to https://api.jashanz.com, which runs on live keys, so that API means 'production';
+// any other API (local development) stays 'sandbox'. VITE_CASHFREE_MODE=production|sandbox overrides it,
+// e.g. to try the live API from a local build.
+const API_URL = import.meta.env.VITE_API_URL || ''
+const MODE_OVERRIDE = import.meta.env.VITE_CASHFREE_MODE
+const MODE = MODE_OVERRIDE
+  ? MODE_OVERRIDE === 'production' ? 'production' : 'sandbox'
+  : /^https:\/\/api\.jashanz\.com(\/|$)/.test(API_URL) ? 'production' : 'sandbox'
 
 let sdkLoadPromise = null
 

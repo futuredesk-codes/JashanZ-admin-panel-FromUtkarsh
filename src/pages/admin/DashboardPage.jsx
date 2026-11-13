@@ -281,11 +281,12 @@ export default function DashboardPage() {
           <span className="w-11 h-11 rounded-[13px] flex items-center justify-center text-white shrink-0" style={{ background: 'linear-gradient(145deg,#34D5FF,#3E7BFA)', boxShadow: "inset 0 1px 0 rgba(255,255,255,.4)" }}>{I.creator}</span>
           <p className="jz-text-strong text-lg font-semibold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>Creators</p>
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           <StatCard label="Total Creators" value={stats?.totalCreators ?? '—'} sub="All registered" color="brand" icon={I.creator} />
           <StatCard label="Pending Approval" value={stats?.pendingCreators ?? '—'} sub="Awaiting review" color="warning" icon={I.creator} />
           <StatCard label="Approved" value={stats?.verifiedCreators ?? '—'} sub={stats ? `${pct(stats.verifiedCreators, stats.totalCreators)} approved` : ''} color="success" icon={I.creator} />
           <StatCard label="Rejected" value={stats?.rejectedCreators ?? '—'} sub={stats ? `${pct(stats.rejectedCreators, stats.totalCreators)} rejected` : ''} color="danger" icon={I.creator} />
+          <StatCard label="Deleted" value={stats?.deletedCreators ?? '—'} sub="Removed accounts" color="slate" icon={I.creator} />
         </div>
       </div>
 

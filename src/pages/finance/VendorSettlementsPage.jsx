@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   getVendorSettlementSummary, getVendorPendingCommissions, getVendorSettlementHistory, markVendorPaymentDone,
 } from '../../api/finance'
@@ -401,8 +402,12 @@ export default function VendorSettlementsPage() {
   const { can } = usePermissions()
   const canAct = can('financeVendorSettlements', 'FULL')
 
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const navigate = useNavigate()
+  // The Vendor Ledger's "Pay" button opens this page already searched for that vendor.
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') || ''
+  const [search, setSearch] = useState(initialSearch)
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch)
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20, hasNextPage: false })
   const [page, setPage] = useState(1)
@@ -510,6 +515,7 @@ export default function VendorSettlementsPage() {
                         <button onClick={() => setPayRow(row)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors" title="Mark payment as done"><IconCheck /></button>
                       )}
                       <button onClick={() => setHistoryRow(row)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors" title="Payment history"><IconHistory /></button>
+                      <button onClick={() => navigate(`/finance/vendor-ledger/${row.businessId}`)} className="px-2 h-7 flex items-center justify-center rounded-lg bg-brand/8 text-brand text-[11px] font-bold hover:bg-brand/15 transition-colors" title="Open this vendor's full ledger">Ledger</button>
                     </div>
                   </td>
                 </tr>

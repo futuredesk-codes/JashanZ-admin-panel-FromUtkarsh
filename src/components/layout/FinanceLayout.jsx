@@ -17,6 +17,7 @@ const NAV = [
   { id: 'subscription-plans', pageId: 'financeRecharge', label: 'Inquiry-Unlock Plans', path: '/finance/subscription-plans', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> },
   { id: 'settlements', pageId: 'financeSettlements', label: 'Vendor Settlement Tracking', path: '/finance/settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> },
   { id: 'vendor-settlements', pageId: 'financeVendorSettlements', label: 'Pending Vendor Settlements', path: '/finance/vendor-settlements', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2H10a2 2 0 00-2 2v16"/></svg> },
+  { id: 'vendor-ledger', pageId: 'financeVendorSettlements', label: 'Vendor Ledger', path: '/finance/vendor-ledger', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><line x1="9" y1="7" x2="16" y2="7"/><line x1="9" y1="11" x2="16" y2="11"/></svg> },
   { id: 'refunds',     pageId: 'financeRefunds',     label: 'Refund Management',   path: '/finance/refunds',     icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> },
   { id: 'cancellation-refunds', pageId: 'financeBookingCancellations', label: 'Booking Cancellation Refunds', path: '/finance/cancellation-refunds', icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> },
   { id: 'reports',     pageId: 'financeReports',     label: 'Finance Reports',     path: '/finance/reports',     icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
@@ -34,6 +35,7 @@ const TITLES = {
   '/finance/subscription-plans': 'Inquiry-Unlock Subscription Plans',
   '/finance/settlements': 'Vendor Settlement Tracking',
   '/finance/vendor-settlements': 'Pending Vendor Settlements',
+  '/finance/vendor-ledger': 'Vendor Ledger',
   '/finance/refunds':     'Refund Management',
   '/finance/cancellation-refunds': 'Booking Cancellation Refunds',
   '/finance/reports':     'Finance Reports',
@@ -48,7 +50,7 @@ function FinanceLayoutInner() {
   const { profile } = useStaffProfile()
   const visibleNav = NAV.filter(n => can(n.pageId, 'READ'))
   const activeId = visibleNav.find(n => pathname.startsWith(n.path))?.id ?? ''
-  const title = TITLES[pathname] ?? 'Finance Portal'
+  const title = TITLES[pathname] ?? (pathname.startsWith('/finance/vendor-ledger/') ? 'Vendor Ledger' : 'Finance Portal')
   const displayName = profile?.name || auth?.username || 'Finance User'
   const initials = displayName.slice(0, 2).toUpperCase()
 

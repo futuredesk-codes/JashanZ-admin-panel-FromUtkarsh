@@ -38,6 +38,8 @@ import BookingPaymentsPage from "./pages/finance/BookingPaymentsPage";
 import PromotionPaymentsPage from "./pages/finance/PromotionPaymentsPage";
 import PayoutsPage from "./pages/finance/PayoutsPage";
 import VendorSettlementsPage from "./pages/finance/VendorSettlementsPage";
+import VendorLedgerPage from "./pages/finance/VendorLedgerPage";
+import VendorLedgerDetailPage from "./pages/finance/VendorLedgerDetailPage";
 import FinanceRefundsPage from "./pages/finance/RefundsPage";
 import CancellationRefundsPage from "./pages/finance/CancellationRefundsPage";
 import FinanceReportsPage from "./pages/finance/ReportsPage";
@@ -488,6 +490,24 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="financeVendorSettlements">
               <VendorSettlementsPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="vendor-ledger"
+          element={
+            <PagePermissionGuard pageId="financeVendorSettlements">
+              <VendorLedgerPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="vendor-ledger/:businessId"
+          element={
+            <PagePermissionGuard pageId="financeVendorSettlements">
+              <VendorLedgerDetailPage />
             </PagePermissionGuard>
           }
         />

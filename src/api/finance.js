@@ -107,6 +107,18 @@ export const getVendorSettlementHistory = (businessId, params) =>
 export const markVendorPaymentDone = (businessId, payload) =>
   api.post(`/finance/vendor-settlements/${businessId}/mark-paid`, payload);
 
+// Vendor Ledger — read-only per-vendor money view (earned / paid / pending / on hold).
+export const getVendorLedgerList = (params) =>
+  api.get("/finance/vendor-ledger", params);
+export const getVendorLedger = (businessId) =>
+  api.get(`/finance/vendor-ledger/${businessId}`);
+export const getVendorLedgerBookings = (businessId, params) =>
+  api.get(`/finance/vendor-ledger/${businessId}/bookings`, params);
+export const getVendorLedgerSettlements = (businessId, params) =>
+  api.get(`/finance/vendor-ledger/${businessId}/settlements`, params);
+export const getVendorLedgerEventSales = (businessId, params) =>
+  api.get(`/finance/vendor-ledger/${businessId}/event-sales`, params);
+
 export const setRegistrationPayment = (businessId, isPaid) =>
   api.post(`/admin/business/${businessId}/registration-payment`, { isPaid });
 

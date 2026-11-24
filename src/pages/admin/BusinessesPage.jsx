@@ -8,6 +8,16 @@ import { useBusinessStatusSocket } from '../../hooks/useBusinessStatusSocket'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
+// Where a vendor stands. The list hides registrations whose fee is not paid and removed vendors unless this
+// view is picked; approving or rejecting is only possible for a "live" one (fee paid, not removed).
+const REGISTRATION_VIEWS = [
+  { value: 'live', label: 'Registered vendors' },
+  { value: 'incomplete', label: 'Registration incomplete' },
+  { value: 'deleted', label: 'Deleted' },
+]
+const registrationState = (b) => (b.isActive === false ? 'deleted' : (!b.isPaid && b.status !== 'VERIFIED' ? 'incomplete' : 'live'))
+const STATE_BADGE = { incomplete: 'Fee not paid', deleted: 'Deleted' }
+const STATE_LOCK_TITLE = { incomplete: 'The registration fee is not paid yet', deleted: 'This vendor was deleted' }
 const STATUS_STYLES = {
   PENDING:  'bg-warning/10 text-warning',
   VERIFIED: 'bg-success/10 text-success',
@@ -43,6 +53,7 @@ const IconTrash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="no
 
 /* ── Business Detail Modal ── */
 function BusinessDetailModal({ biz, onClose, onVerify }) {
+  const state = registrationState(biz)
   const [tab, setTab] = useState('Overview')
   const tabs = ['Overview', 'Documents', 'Bank Details', 'Bookings']
   const [bookings, setBookings] = useState([])
@@ -222,14 +233,16 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
           <div className="flex gap-2">
             <button
               onClick={() => onVerify(biz._id, 'VERIFIED')}
-              disabled={biz.status === 'VERIFIED'}
+              disabled={biz.status === 'VERIFIED' || state !== 'live'}
+              title={STATE_LOCK_TITLE[state]}
               className="bg-success/10 text-success rounded-xl px-4 py-2 text-sm font-bold hover:bg-success/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Approve
             </button>
             <button
               onClick={() => onVerify(biz._id, 'REJECTED')}
-              disabled={biz.status === 'REJECTED'}
+              disabled={biz.status === 'REJECTED' || state !== 'live'}
+              title={STATE_LOCK_TITLE[state]}
               className="bg-danger/10 text-danger rounded-xl px-4 py-2 text-sm font-bold hover:bg-danger/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Reject
@@ -248,6 +261,7 @@ export default function BusinessesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [viewFilter, setViewFilter] = useState('live')
   const [categories, setCategories] = useState([])
   const [businesses, setBusinesses] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, hasNextPage: false })
@@ -284,14 +298,14 @@ export default function BusinessesPage() {
   const loadBusinesses = useCallback(() => {
     setLoading(true)
     setError('')
-    getBusinesses({ page, limit: 10, search: debouncedSearch, category: catFilter, status: statusFilter })
+    getBusinesses({ page, limit: 10, search: debouncedSearch, category: catFilter, status: statusFilter, view: viewFilter })
       .then(data => {
         setBusinesses(data.items || [])
         setPagination(data.pagination)
       })
       .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load businesses.'))
       .finally(() => setLoading(false))
-  }, [page, debouncedSearch, catFilter, statusFilter])
+  }, [page, debouncedSearch, catFilter, statusFilter, viewFilter])
 
   useEffect(() => { (async () => { await loadBusinesses() })() }, [loadBusinesses])
 
@@ -414,6 +428,12 @@ export default function BusinessesPage() {
           <option value="">All Statuses</option>
           {STATUSES_LIST.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
         </select>
+        <select className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" value={viewFilter} onChange={e => { setViewFilter(e.target.value); setPage(1) }}>
+          {REGISTRATION_VIEWS.map(v => {
+            const count = v.value === 'incomplete' ? stats?.incompleteBusinesses : v.value === 'deleted' ? stats?.deletedBusinesses : null
+            return <option key={v.value} value={v.value}>{v.label}{count != null ? ` (${count})` : ''}</option>
+          })}
+        </select>
       </div>
 
       {error && (
@@ -454,6 +474,9 @@ export default function BusinessesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[biz.status]}`}>{STATUS_LABEL[biz.status]}</span>
+                      {registrationState(biz) !== 'live' && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{STATE_BADGE[registrationState(biz)]}</span>
+                      )}
                       {biz.status !== 'VERIFIED' && getBankPendingReason(biz) && (
                         <span className="w-2 h-2 rounded-full bg-warning" title={`Approval pending: ${getBankPendingReason(biz)}`} />
                       )}
@@ -464,9 +487,11 @@ export default function BusinessesPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button onClick={() => setViewBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
-                      <button onClick={() => { setActionError(''); setForceAck(false); setConfirmAction({ biz, status: 'VERIFIED' }) }} disabled={biz.status==='VERIFIED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
-                      <button onClick={() => { setActionError(''); setForceAck(false); setConfirmAction({ biz, status: 'REJECTED' }) }} disabled={biz.status==='REJECTED'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
-                      <button onClick={() => setDeleteBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
+                      <button onClick={() => { setActionError(''); setForceAck(false); setConfirmAction({ biz, status: 'VERIFIED' }) }} disabled={biz.status==='VERIFIED' || registrationState(biz) !== 'live'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Approve"><IconCheck /></button>
+                      <button onClick={() => { setActionError(''); setForceAck(false); setConfirmAction({ biz, status: 'REJECTED' }) }} disabled={biz.status==='REJECTED' || registrationState(biz) !== 'live'} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Reject"><IconXSmall /></button>
+                      {registrationState(biz) !== 'deleted' && (
+                        <button onClick={() => setDeleteBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors" title="Delete"><IconTrash /></button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -546,9 +571,9 @@ export default function BusinessesPage() {
 
       {deleteBiz && (
         <ConfirmDialog
-          title="Delete this business?"
-          message={`${deleteBiz.profile?.name || deleteBiz.username}'s account will be permanently and irreversibly deleted — this cannot be undone. Their past bookings and reviews stay in the system, but will show this business as removed.`}
-          confirmLabel="Delete Business"
+          title="Remove this business?"
+          message={`${deleteBiz.profile?.name || deleteBiz.username}'s account will be removed: they can no longer log in, and they disappear from search and from this list (you can still see them under "Deleted"). Their bookings, payments and reviews are kept.`}
+          confirmLabel="Remove Business"
           loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setDeleteBiz(null)}

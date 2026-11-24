@@ -66,6 +66,7 @@ import BusinessesPage from "./pages/admin/BusinessesPage";
 import CreatorsPage from "./pages/admin/CreatorsPage";
 import CustomersPage from "./pages/admin/CustomersPage";
 import CategoriesPage from "./pages/admin/CategoriesPage";
+import CouponsPage from "./pages/admin/CouponsPage";
 import CirclesPage from "./pages/admin/CirclesPage";
 import ContentModerationPage from "./pages/admin/ContentModerationPage"
 import ReportedUsersPage from "./pages/admin/ReportedUsersPage";
@@ -172,6 +173,15 @@ function AppRoutes() {
           element={
             <PagePermissionGuard pageId="categories">
               <CategoriesPage />
+            </PagePermissionGuard>
+          }
+        />
+
+        <Route
+          path="coupons"
+          element={
+            <PagePermissionGuard pageId="coupons">
+              <CouponsPage />
             </PagePermissionGuard>
           }
         />

@@ -7,6 +7,16 @@ import { useBusinessStatusSocket } from '../../hooks/useBusinessStatusSocket'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
+// Where a vendor stands. The list hides registrations whose fee is not paid and removed vendors unless this
+// view is picked; approving or rejecting is only possible for a "live" one (fee paid, not removed).
+const REGISTRATION_VIEWS = [
+  { value: 'live', label: 'Registered vendors' },
+  { value: 'incomplete', label: 'Registration incomplete' },
+  { value: 'deleted', label: 'Deleted' },
+]
+const registrationState = (b) => (b.isActive === false ? 'deleted' : (!b.isPaid && b.status !== 'VERIFIED' ? 'incomplete' : 'live'))
+const STATE_BADGE = { incomplete: 'Fee not paid', deleted: 'Deleted' }
+const STATE_LOCK_TITLE = { incomplete: 'The registration fee is not paid yet', deleted: 'This vendor was deleted' }
 const STATUS_STYLES = {
   PENDING: 'bg-warning/10 text-warning',
   VERIFIED: 'bg-success/10 text-success',
@@ -41,6 +51,7 @@ const IconXSmall = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="n
 /* ── Business Detail Modal — same shape as Admin's BusinessesPage.jsx, just
    pointed at Support's own bookings endpoint/verify action ── */
 function BusinessDetailModal({ biz, onClose, onVerify }) {
+  const state = registrationState(biz)
   const [tab, setTab] = useState('Overview')
   const tabs = ['Overview', 'Documents', 'Bank Details', 'Bookings']
   const [bookings, setBookings] = useState([])
@@ -219,14 +230,16 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
           <div className="flex gap-2">
             <button
               onClick={() => onVerify(biz._id, 'VERIFIED')}
-              disabled={biz.status === 'VERIFIED'}
+              disabled={biz.status === 'VERIFIED' || state !== 'live'}
+              title={STATE_LOCK_TITLE[state]}
               className="bg-success/10 text-success rounded-xl px-4 py-2 text-sm font-bold hover:bg-success/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Approve
             </button>
             <button
               onClick={() => onVerify(biz._id, 'REJECTED')}
-              disabled={biz.status === 'REJECTED'}
+              disabled={biz.status === 'REJECTED' || state !== 'live'}
+              title={STATE_LOCK_TITLE[state]}
               className="bg-danger/10 text-danger rounded-xl px-4 py-2 text-sm font-bold hover:bg-danger/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Reject
@@ -243,6 +256,7 @@ export default function VendorApprovalsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [viewFilter, setViewFilter] = useState('live')
   const [businesses, setBusinesses] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, hasNextPage: false })
   const [page, setPage] = useState(1)
@@ -264,14 +278,14 @@ export default function VendorApprovalsPage() {
   const loadBusinesses = useCallback(() => {
     setLoading(true)
     setError('')
-    getSupportBusinesses({ page, limit: 10, search: debouncedSearch, status: statusFilter })
+    getSupportBusinesses({ page, limit: 10, search: debouncedSearch, status: statusFilter, view: viewFilter })
       .then(data => {
         setBusinesses(data.items || [])
         setPagination(data.pagination)
       })
       .catch(err => setError(err instanceof ApiError ? err.message : 'Could not load vendors.'))
       .finally(() => setLoading(false))
-  }, [page, debouncedSearch, statusFilter])
+  }, [page, debouncedSearch, statusFilter, viewFilter])
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- loadBusinesses' own setState calls are the actual fetch-on-mount-and-filter-change trigger, not a derived-render value
   useEffect(() => { loadBusinesses() }, [loadBusinesses])
@@ -358,6 +372,13 @@ export default function VendorApprovalsPage() {
           <option value="">All Statuses</option>
           {STATUSES_LIST.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
         </select>
+        <select
+          value={viewFilter}
+          onChange={e => { setViewFilter(e.target.value); setPage(1) }}
+          className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20"
+        >
+          {REGISTRATION_VIEWS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+        </select>
       </div>
 
       {error && <p className="text-sm text-danger font-semibold">{error}</p>}
@@ -395,6 +416,9 @@ export default function VendorApprovalsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[biz.status]}`}>{STATUS_LABEL[biz.status]}</span>
+                      {registrationState(biz) !== 'live' && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{STATE_BADGE[registrationState(biz)]}</span>
+                      )}
                       {biz.status !== 'VERIFIED' && getBankPendingReason(biz) && (
                         <span className="w-2 h-2 rounded-full bg-warning" title={`Approval pending: ${getBankPendingReason(biz)}`} />
                       )}
@@ -406,7 +430,7 @@ export default function VendorApprovalsPage() {
                       <button onClick={() => setViewBiz(biz)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-info/8 text-info hover:bg-info/15 transition-colors" title="View"><IconEye /></button>
                       <button
                         onClick={() => { setActionError(''); setConfirmAction({ biz, status: 'VERIFIED' }) }}
-                        disabled={actionId === biz._id || biz.status === 'VERIFIED'}
+                        disabled={actionId === biz._id || biz.status === 'VERIFIED' || registrationState(biz) !== 'live'}
                         className="w-7 h-7 flex items-center justify-center rounded-lg bg-success/8 text-success hover:bg-success/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         title="Approve"
                       >
@@ -414,7 +438,7 @@ export default function VendorApprovalsPage() {
                       </button>
                       <button
                         onClick={() => { setActionError(''); setConfirmAction({ biz, status: 'REJECTED' }) }}
-                        disabled={actionId === biz._id || biz.status === 'REJECTED'}
+                        disabled={actionId === biz._id || biz.status === 'REJECTED' || registrationState(biz) !== 'live'}
                         className="w-7 h-7 flex items-center justify-center rounded-lg bg-danger/8 text-danger hover:bg-danger/15 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         title="Reject"
                       >

@@ -124,6 +124,20 @@ export default function VendorPaymentsPage() {
                   <td className="px-4 py-3 whitespace-nowrap">
                     <YesNo ok={v.registrationFeePaid} yes="Paid" no="Unpaid" />
                     {v.registrationFeePaid && <span className="ml-2 text-xs font-bold text-slate-700">{fmtMoney(v.registrationFeeAmount)}</span>}
+                    {v.coupon && (
+                      <div className="mt-1.5 text-[11px] leading-snug">
+                        <span className="font-mono font-bold text-brand">{v.coupon.code}</span>
+                        {v.coupon.discountAmount > 0 && <span className="text-slate-500"> · −{fmtMoney(v.coupon.discountAmount)} off {fmtMoney(v.coupon.originalAmount)}</span>}
+                        {v.coupon.inquiry && (
+                          <span className="block text-info font-semibold">
+                            + {v.coupon.inquiry.days} days free inquiries
+                            <span className="font-normal text-slate-400">
+                              {v.coupon.inquiry.given ? ` (${fmtDate(v.coupon.inquiry.startsAt)} – ${fmtDate(v.coupon.inquiry.endsAt)})` : ' (starts after approval)'}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <YesNo ok={v.premiumUpgrade} />

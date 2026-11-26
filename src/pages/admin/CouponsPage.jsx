@@ -34,15 +34,83 @@ const IconList = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="non
 const IconPause = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
 const IconPlay = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
 
-const discountText = (c) => (c.type === 'PERCENT' ? `${c.value}% off${c.maxDiscount ? ` (max ${inr(c.maxDiscount)})` : ''}` : `${inr(c.value)} off`)
+const discountText = (c) =>
+  c.type === 'NONE' ? 'No fee discount' : c.type === 'PERCENT' ? `${c.value}% off${c.maxDiscount ? ` (max ${inr(c.maxDiscount)})` : ''}` : `${inr(c.value)} off`
+const inquiryText = (a) => (a ? `${a.planName ? `${a.planName} · ` : ''}${a.days} days` : '')
 
 const emptyForm = () => ({
   code: '', title: '', type: 'PERCENT', value: '', maxDiscount: '', categories: [],
   validFrom: toLocalInput(new Date()), validTo: '', totalLimit: '', maxTotalDiscount: '',
+  // free inquiry access: off, an Inquiry Plan (its id), or CUSTOM with a number of days
+  inquiryOn: false, inquiryPlanId: '', inquiryDays: '',
 })
 
 /* ── Create / Edit ── */
-function CouponModal({ editing, categories, onClose, onSave }) {
+// Searchable multi-select for business categories. The list opens inside the form (not floating), so the
+// modal's scroll area never cuts it off.
+function CategoryMultiSelect({ categories, selected, onToggle, onClear }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const picked = categories.filter(c => selected.includes(c._id))
+  const names = picked.map(c => c.name)
+  const summary = names.length === 0 ? 'All categories (click to choose)' : `${names.length} selected — click to add more`
+  const q = query.trim().toLowerCase()
+  const shown = q ? categories.filter(c => c.name.toLowerCase().includes(q)) : categories
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`${inputCls} flex items-center justify-between gap-2 text-left ${names.length ? '' : 'text-slate-400'}`}>
+        <span className="truncate">{summary}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className="mt-1 border border-slate-200 rounded-xl bg-white overflow-hidden">
+          <div className="p-2 border-b border-slate-100 flex items-center gap-2">
+            <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter') e.preventDefault() }}
+              placeholder="Search categories…"
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-brand/20" />
+            {names.length > 0 && <button type="button" onClick={onClear} className="text-[11px] font-bold text-slate-400 hover:text-danger shrink-0">Clear</button>}
+          </div>
+          <div className="max-h-48 overflow-y-auto py-1">
+            {shown.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-slate-400">No matches</p>
+            ) : shown.map(c => {
+              const on = selected.includes(c._id)
+              return (
+                <label key={c._id} className={`flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 ${on ? 'text-brand font-semibold' : 'text-slate-700'}`}>
+                  <input type="checkbox" className="w-4 h-4 accent-brand" checked={on} onChange={() => onToggle(c._id)} />
+                  {c.name}
+                </label>
+              )
+            })}
+          </div>
+          <div className="px-3 py-2 border-t border-slate-100 flex justify-end">
+            <button type="button" onClick={() => setOpen(false)} className="text-xs font-bold text-brand">Done</button>
+          </div>
+        </div>
+      )}
+      {picked.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {picked.map(c => (
+            <span key={c._id} className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full text-xs font-bold bg-brand/10 text-brand border border-brand/20">
+              {c.name}
+              <button type="button" onClick={() => onToggle(c._id)} title={`Remove ${c.name}`} aria-label={`Remove ${c.name}`}
+                className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-brand/20">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CouponModal({ editing, categories, inquiryPlans, onClose, onSave }) {
   const [form, setForm] = useState(editing ? {
     code: editing.code, title: editing.title || '', type: editing.type, value: String(editing.value),
     maxDiscount: editing.maxDiscount == null ? '' : String(editing.maxDiscount),
@@ -50,6 +118,9 @@ function CouponModal({ editing, categories, onClose, onSave }) {
     validFrom: toLocalInput(editing.validFrom), validTo: toLocalInput(editing.validTo),
     totalLimit: editing.totalLimit == null ? '' : String(editing.totalLimit),
     maxTotalDiscount: editing.maxTotalDiscount == null ? '' : String(editing.maxTotalDiscount),
+    inquiryOn: !!editing.inquiryAccess,
+    inquiryPlanId: editing.inquiryAccess?.planId ? String(editing.inquiryAccess.planId) : editing.inquiryAccess ? 'CUSTOM' : '',
+    inquiryDays: editing.inquiryAccess && !editing.inquiryAccess.planId ? String(editing.inquiryAccess.days) : '',
   } : emptyForm())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -61,10 +132,23 @@ function CouponModal({ editing, categories, onClose, onSave }) {
     e.preventDefault()
     setError('')
     if (!form.validFrom || !form.validTo) { setError('Choose when the coupon starts and ends.'); return }
+    let inquiryAccess = null
+    if (form.inquiryOn) {
+      if (!form.inquiryPlanId) { setError('Choose how long the free inquiry access lasts.'); return }
+      if (form.inquiryPlanId === 'CUSTOM') {
+        const days = Math.round(Number(form.inquiryDays))
+        if (!(days >= 1 && days <= 3650)) { setError('Enter the number of days (1 to 3650) for free inquiries.'); return }
+        inquiryAccess = { days }
+      } else {
+        inquiryAccess = { planId: form.inquiryPlanId }
+      }
+    }
+    if (form.type === 'NONE' && !inquiryAccess) { setError('A coupon without a fee discount must give free inquiry access.'); return }
     const payload = {
       title: form.title.trim(),
       type: form.type,
-      value: Number(form.value),
+      value: form.type === 'NONE' ? 0 : Number(form.value),
+      inquiryAccess,
       maxDiscount: form.type === 'PERCENT' ? numOrNull(form.maxDiscount) : null,
       categories: form.categories,
       validFrom: new Date(form.validFrom).toISOString(),
@@ -110,16 +194,51 @@ function CouponModal({ editing, categories, onClose, onSave }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Discount Type</label>
-              <select className={inputCls} value={form.type} onChange={e => set('type', e.target.value)}>
+              <select className={inputCls} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value, ...(e.target.value === 'NONE' ? { inquiryOn: true } : {}) }))}>
                 <option value="PERCENT">Percentage (%)</option>
                 <option value="FLAT">Flat amount (₹)</option>
+                <option value="NONE">No fee discount (free inquiries only)</option>
               </select>
             </div>
-            <div>
-              <label className={labelCls}>{form.type === 'PERCENT' ? 'Percentage (1–100)' : 'Amount off (₹)'}</label>
-              <input required type="number" min="0.01" max={form.type === 'PERCENT' ? 100 : undefined} step="any" className={inputCls}
-                value={form.value} onChange={e => set('value', e.target.value)} />
-            </div>
+            {form.type !== 'NONE' ? (
+              <div>
+                <label className={labelCls}>{form.type === 'PERCENT' ? 'Percentage (1–100)' : 'Amount off (₹)'}</label>
+                <input required type="number" min="0.01" max={form.type === 'PERCENT' ? 100 : undefined} step="any" className={inputCls}
+                  value={form.value} onChange={e => set('value', e.target.value)} />
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 self-end pb-2">The vendor pays the full registration fee and gets the free inquiry access below.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-4 h-4 accent-brand shrink-0" checked={form.inquiryOn}
+                disabled={form.type === 'NONE'}
+                onChange={e => set('inquiryOn', e.target.checked)} />
+              <span>
+                <span className="block text-sm font-bold text-slate-800">Free inquiry access</span>
+                <span className="block text-[11px] text-slate-400">All of the vendor's inquiries are unlocked, like a paid Inquiry Plan. Counted from the day an admin approves the vendor; added after any plan they already have.</span>
+              </span>
+            </label>
+            {form.inquiryOn && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>For how long</label>
+                  <select className={inputCls} value={form.inquiryPlanId} onChange={e => set('inquiryPlanId', e.target.value)}>
+                    <option value="">Choose…</option>
+                    {(inquiryPlans || []).map(pl => <option key={pl._id} value={String(pl._id)}>{pl.name} ({pl.durationDays} days)</option>)}
+                    <option value="CUSTOM">Custom number of days</option>
+                  </select>
+                </div>
+                {form.inquiryPlanId === 'CUSTOM' && (
+                  <div>
+                    <label className={labelCls}>Days</label>
+                    <input type="number" min="1" max="3650" step="1" className={inputCls} placeholder="e.g. 90" value={form.inquiryDays} onChange={e => set('inquiryDays', e.target.value)} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {form.type === 'PERCENT' && (
@@ -157,17 +276,7 @@ function CouponModal({ editing, categories, onClose, onSave }) {
             {categories.length === 0 ? (
               <p className="text-xs text-slate-400">No categories loaded.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {categories.map(c => {
-                  const on = form.categories.includes(c._id)
-                  return (
-                    <button type="button" key={c._id} onClick={() => toggleCat(c._id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold border ${on ? 'bg-brand text-white border-brand' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-                      {c.name}
-                    </button>
-                  )
-                })}
-              </div>
+              <CategoryMultiSelect categories={categories} selected={form.categories} onToggle={toggleCat} onClear={() => set('categories', [])} />
             )}
             <p className="text-[11px] text-slate-400 mt-1">{form.categories.length ? `Only vendors in ${form.categories.length} selected categor${form.categories.length === 1 ? 'y' : 'ies'} can use it.` : 'Nothing selected: vendors of every category can use it.'}</p>
           </div>
@@ -229,15 +338,15 @@ function RedemptionsModal({ coupon, onClose }) {
         <div className="overflow-auto flex-1">
           <table className="w-full text-sm">
             <thead className="bg-slate-50/70 border-b border-slate-100">
-              <tr>{['Vendor', 'Status', 'Fee', 'Discount', 'Paid', 'Date'].map(h => <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{h}</th>)}</tr>
+              <tr>{['Vendor', 'Status', 'Fee', 'Discount', 'Paid', 'Free inquiries', 'Date'].map(h => <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">{h}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-sm">Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">Loading…</td></tr>
               ) : error ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-danger text-sm font-semibold">{error}</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-danger text-sm font-semibold">{error}</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-sm">Nobody has used this coupon yet.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400 text-sm">Nobody has used this coupon yet.</td></tr>
               ) : rows.map(r => (
                 <tr key={r._id}>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">{r.business?.username || '—'}</td>
@@ -245,6 +354,11 @@ function RedemptionsModal({ coupon, onClose }) {
                   <td className="px-4 py-3 text-xs text-slate-600">{inr(r.originalAmount)}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{inr(r.discountAmount)}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">{inr(r.finalAmount)}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                    {!r.inquiry ? '—' : r.inquiry.state === 'GIVEN'
+                      ? <span><span className="font-bold text-success">{r.inquiry.days} days</span><span className="block text-[11px] text-slate-400">{fmtDate(r.inquiry.startsAt)} – {fmtDate(r.inquiry.endsAt)}</span></span>
+                      : <span><span className="font-bold">{r.inquiry.days} days</span><span className="block text-[11px] text-warning">{r.status === 'REDEEMED' ? 'Starts when approved' : 'After payment and approval'}</span></span>}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500">{fmtDateTime(r.redeemedAt || r.createdAt)}</td>
                 </tr>
               ))}
@@ -277,6 +391,7 @@ export default function CouponsPage() {
   const [page, setPage] = useState(1)
   const [reload, setReload] = useState(0)
   const [categories, setCategories] = useState([])
+  const [inquiryPlans, setInquiryPlans] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [viewing, setViewing] = useState(null)
@@ -299,6 +414,7 @@ export default function CouponsPage() {
         const data = await listCoupons(params)
         if (!live) return
         setCoupons(data.coupons || [])
+        setInquiryPlans(data.inquiryPlans || [])
         setTotal(data.total || 0)
         setStats(data.stats || { total: 0, active: 0 })
       } catch (err) {
@@ -386,7 +502,10 @@ export default function CouponsPage() {
                     {c.title && <p className="text-[11px] text-slate-400">{c.title}</p>}
                     {c.categories?.length > 0 && <p className="text-[11px] text-slate-400">{c.categories.length} categor{c.categories.length === 1 ? 'y' : 'ies'} only</p>}
                   </td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">{discountText(c)}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800 whitespace-nowrap">
+                    {discountText(c)}
+                    {c.inquiryAccess && <span className="block mt-1 w-fit px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-info/10 text-info">+ Free inquiries · {inquiryText(c.inquiryAccess)}</span>}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(c.validFrom)} – {fmtDate(c.validTo)}</td>
                   <td className="px-4 py-3 text-xs text-slate-800 whitespace-nowrap">
                     <span className="font-bold">{c.usedCount}</span>{c.totalLimit != null ? ` / ${c.totalLimit}` : ''}
@@ -420,7 +539,7 @@ export default function CouponsPage() {
         </div>
       </div>
 
-      {showModal && <CouponModal editing={editing} categories={categories} onClose={() => setShowModal(false)} onSave={handleSave} />}
+      {showModal && <CouponModal editing={editing} categories={categories} inquiryPlans={inquiryPlans} onClose={() => setShowModal(false)} onSave={handleSave} />}
       {viewing && <RedemptionsModal coupon={viewing} onClose={() => setViewing(null)} />}
     </div>
   )

@@ -27,7 +27,7 @@ function TransactionDetailModal({ transaction, onClose }) {
           <DetailRow label="Business">{transaction.business?.username ?? '—'}</DetailRow>
           <DetailRow label="Plan">{transaction.meta?.subscriptionPlan ?? '—'}</DetailRow>
           <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="Amount Paid">{transaction.amountPaid ? `₹${transaction.amountPaid}` : '—'}</DetailRow>
+            <DetailRow label="Amount Paid">{transaction.meta?.free ? `Free (coupon ${transaction.meta.couponCode || ''})` : transaction.amountPaid ? `₹${transaction.amountPaid}` : '—'}</DetailRow>
             <DetailRow label="Duration">{transaction.meta?.durationDays ? `${transaction.meta.durationDays} days` : '—'}</DetailRow>
           </div>
           <DetailRow label="Order ID">
@@ -125,6 +125,7 @@ export default function SubscriptionPlansPage() {
   const [txLoading, setTxLoading] = useState(true)
   const [txError, setTxError] = useState('')
   const [viewingTx, setViewingTx] = useState(null)
+  const [kind, setKind] = useState('') // '' all, PAID, FREE (given with a registration coupon)
   const [deletingId, setDeletingId] = useState(null)
 
   const load = useCallback(async () => {
@@ -143,14 +144,14 @@ export default function SubscriptionPlansPage() {
     setTxLoading(true)
     setTxError('')
     try {
-      const data = await getWalletTransactions({ source: 'SUBSCRIPTION', limit: 50 })
+      const data = await getWalletTransactions({ source: 'SUBSCRIPTION', limit: 50, ...(kind ? { subscriptionKind: kind } : {}) })
       setTransactions(data.items || [])
     } catch (err) {
       setTxError(err instanceof ApiError ? err.message : 'Failed to load payments.')
     } finally {
       setTxLoading(false)
     }
-  }, [])
+  }, [kind])
 
   useEffect(() => { (async () => { await load() })() }, [load])
   useEffect(() => { (async () => { await loadTransactions() })() }, [loadTransactions])
@@ -191,8 +192,14 @@ export default function SubscriptionPlansPage() {
       )}
 
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100">
+        <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Subscription Payments</p>
+          <div className="flex gap-1">
+            {[['', 'All'], ['PAID', 'Paid'], ['FREE', 'Free (coupon)']].map(([v, label]) => (
+              <button key={label} onClick={() => setKind(v)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold ${kind === v ? 'bg-brand text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{label}</button>
+            ))}
+          </div>
         </div>
 
         {txError && <p className="text-sm text-danger font-semibold px-5 py-3">{txError}</p>}
@@ -215,7 +222,11 @@ export default function SubscriptionPlansPage() {
                 <tr key={t._id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3 text-xs font-bold text-slate-800">{t.business?.username ?? '—'}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{t.meta?.subscriptionPlan ?? '—'}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{t.amountPaid ? `₹${t.amountPaid}` : '—'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">
+                    {t.meta?.free
+                      ? <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-success/10 text-success whitespace-nowrap">₹0 · Free (coupon {t.meta.couponCode})</span>
+                      : t.amountPaid ? `₹${t.amountPaid}` : '—'}
+                  </td>
                   <td className="px-4 py-3 text-[11px] text-slate-400 font-mono truncate max-w-40">{t.razorpayOrderId ?? '—'}</td>
                   <td className="px-4 py-3 text-xs text-slate-500">{new Date(t.createdAt).toLocaleString()}</td>
                   <td className="px-4 py-3">

@@ -5,6 +5,8 @@ import { getPlatformAnalytics } from '../../api/analytics'
 import { ApiError } from '../../api/client'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { useBusinessStatusSocket } from '../../hooks/useBusinessStatusSocket'
+import GstCheckStatus from '../../components/GstCheckStatus'
+import PanCheckBlock from '../../components/PanCheckBlock'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
@@ -145,7 +147,9 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">GST Number</p>
                 <p className="text-sm font-bold text-slate-800">{profile.gstNumber || 'Not provided'}</p>
+                <GstCheckStatus profile={profile} />
               </div>
+              <PanCheckBlock profile={profile} />
               {[['GST Certificate', profile.gstCertificate], ['PAN Card', profile.panCard]].map(([label, url]) => (
                 <div key={label} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                   <div className="flex items-center gap-3">

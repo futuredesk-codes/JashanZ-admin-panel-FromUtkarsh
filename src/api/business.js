@@ -9,6 +9,13 @@ export const verifyBusiness = (businessId, status, force = false) =>
 export const deleteBusiness = (businessId) =>
   api.post(`/admin/business/${businessId}/delete`);
 
+// Gives a vendor's registration bank / GST / PAN checks back (they used them all and are stuck).
+export const resetKycChecks = (businessId) =>
+  api.post(`/admin/business/${businessId}/reset-kyc-checks`, {});
+
+export const resetKycChecksAsSupport = (businessId) =>
+  api.post(`/support/business/${businessId}/reset-kyc-checks`, {});
+
 export const getBusinessBookings = (businessId, params) =>
   api.get(`/admin/business/${businessId}/bookings`, params);
 

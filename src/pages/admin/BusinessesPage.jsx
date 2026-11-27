@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { getBusinesses, verifyBusiness, deleteBusiness, getBusinessBookings, getCategories } from '../../api/business'
+import { getBusinesses, verifyBusiness, deleteBusiness, getBusinessBookings, getCategories, resetKycChecks } from '../../api/business'
 import { getPlatformAnalytics } from '../../api/analytics'
 import { ApiError } from '../../api/client'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { useBusinessStatusSocket } from '../../hooks/useBusinessStatusSocket'
 import GstCheckStatus from '../../components/GstCheckStatus'
 import PanCheckBlock from '../../components/PanCheckBlock'
+import KycChecksReset from '../../components/KycChecksReset'
 
 const STATUSES_LIST = ['PENDING', 'VERIFIED', 'REJECTED']
 const STATUS_LABEL = { PENDING: 'Pending', VERIFIED: 'Approved', REJECTED: 'Rejected' }
@@ -144,6 +145,7 @@ function BusinessDetailModal({ biz, onClose, onVerify }) {
 
           {tab === 'Documents' && (
             <div className="space-y-3">
+              <KycChecksReset key={biz._id} biz={biz} reset={resetKycChecks} />
               <div className="bg-slate-50 rounded-xl p-3">
                 <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide mb-1">GST Number</p>
                 <p className="text-sm font-bold text-slate-800">{profile.gstNumber || 'Not provided'}</p>
